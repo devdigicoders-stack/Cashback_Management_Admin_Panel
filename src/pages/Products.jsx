@@ -3,7 +3,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaBoxOpen, FaPlus, FaEdit, FaSearch, FaTimes, FaRupeeSign } from "react-icons/fa";
+import { FaBoxOpen, FaPlus, FaEdit, FaSearch, FaTimes, FaRupeeSign, FaTrash, FaPowerOff } from "react-icons/fa";
 import api from "../utils/api";
 
 const Products = () => {
@@ -144,6 +144,40 @@ const Products = () => {
       p.sku.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleToggleStatus = async (product) => {
+    try {
+      const url = `/api/admin/products/${product._id}`;
+      const payload = {
+        name: product.name,
+        sku: product.sku,
+        category: product.category,
+        cashbackConfig: product.cashbackConfig,
+        isActive: !product.isActive,
+      };
+      const response = await api.put(url, payload);
+      if (response.data.success) {
+        toast.success(`Product ${payload.isActive ? "activated" : "deactivated"} successfully!`);
+        fetchProducts();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error toggling product status");
+    }
+  };
+
+  const handleDeleteProduct = async (id) => {
+    if (window.confirm("Are you sure you want to delete this product? This action cannot be undone and may affect old scan records.")) {
+      try {
+        const response = await api.delete(`/api/admin/products/${id}`);
+        if (response.data.success) {
+          toast.success("Product deleted successfully!");
+          fetchProducts();
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Error deleting product");
+      }
+    }
+  };
+
   // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -243,13 +277,29 @@ const Products = () => {
                       )}
                     </td>
                     <td className="p-4 text-center">
-                      <button
-                        onClick={() => handleOpenModal(product)}
-                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition shadow-sm"
-                        title="Edit Product"
-                      >
-                        <FaEdit />
-                      </button>
+                      <div className="flex justify-center items-center gap-2">
+                        <button
+                          onClick={() => handleOpenModal(product)}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition shadow-sm"
+                          title="Edit Product"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(product)}
+                          className={`p-2 rounded-lg transition shadow-sm ${product.isActive ? "bg-orange-50 text-orange-600 hover:bg-orange-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}
+                          title={product.isActive ? "Deactivate Product" : "Activate Product"}
+                        >
+                          <FaPowerOff />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(product._id)}
+                          className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition shadow-sm"
+                          title="Delete Product"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
