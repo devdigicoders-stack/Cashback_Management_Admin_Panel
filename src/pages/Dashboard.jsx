@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Highcharts from "highcharts";
-import HighchartsReact from "highcharts-react-official";
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
@@ -49,95 +48,33 @@ const Dashboard = () => {
     }
   };
 
-  // Highcharts: Donut Chart for Users Distribution
-  const usersDonutOptions = {
-    chart: {
-      type: "pie",
-      backgroundColor: "transparent",
-      style: { fontFamily: currentFont.family }
-    },
-    title: {
-      text: "Users Distribution",
-      style: { color: themeColors.text, fontWeight: "bold" }
-    },
-    tooltip: {
-      pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b> ({point.y} users)'
-    },
-    plotOptions: {
-      pie: {
-        innerSize: '60%', // Makes it a donut chart
-        allowPointSelect: true,
-        cursor: 'pointer',
-        dataLabels: {
-          enabled: true,
-          format: '<b>{point.name}</b>: {point.y}',
-          style: { color: themeColors.text }
-        }
-      }
-    },
-    series: [{
-      name: 'Users',
-      colorByPoint: true,
-      data: [
-        { name: 'Electricians', y: stats.totalElectricians, color: '#f97316' }, // Orange
-        { name: 'Retailers', y: stats.totalRetailers, color: '#8b5cf6' }       // Purple
-      ]
-    }],
-    credits: { enabled: false }
-  };
+  // Recharts: Donut Chart Data
+  const usersDonutData = [
+    { name: 'Electricians', value: stats.totalElectricians, color: '#f97316' }, // Orange
+    { name: 'Retailers', value: stats.totalRetailers, color: '#8b5cf6' }       // Purple
+  ];
 
-  // Highcharts: Column Chart for System Activity
-  const activityColumnOptions = {
-    chart: {
-      type: "column",
-      backgroundColor: "transparent",
-      style: { fontFamily: currentFont.family }
+  // Recharts: Bar Chart Data
+  const activityBarData = [
+    {
+      name: 'Electricians',
+      Total: stats.totalElectricians,
+      Active: stats.totalActiveElectricians,
+      'Pending Tasks': 0
     },
-    title: {
-      text: "System Activity & Pending Tasks",
-      style: { color: themeColors.text, fontWeight: "bold" }
+    {
+      name: 'Retailers',
+      Total: stats.totalRetailers,
+      Active: stats.totalActiveRetailers,
+      'Pending Tasks': 0
     },
-    xAxis: {
-      categories: ['Electricians', 'Retailers', 'Pending Actions'],
-      labels: { style: { color: themeColors.textSecondary } }
-    },
-    yAxis: {
-      min: 0,
-      title: {
-        text: 'Count',
-        style: { color: themeColors.textSecondary }
-      },
-      labels: { style: { color: themeColors.textSecondary } },
-      gridLineColor: themeColors.border
-    },
-    tooltip: {
-      shared: true
-    },
-    plotOptions: {
-      column: {
-        borderRadius: 5,
-        dataLabels: { enabled: true }
-      }
-    },
-    series: [
-      {
-        name: 'Total',
-        data: [stats.totalElectricians, stats.totalRetailers, null],
-        color: '#e2e8f0' // Gray
-      },
-      {
-        name: 'Active',
-        data: [stats.totalActiveElectricians, stats.totalActiveRetailers, null],
-        color: '#3b82f6' // Blue
-      },
-      {
-        name: 'Pending Tasks',
-        data: [null, null, stats.pendingWithdrawals + stats.pendingKYC],
-        color: '#ef4444' // Red
-      }
-    ],
-    credits: { enabled: false }
-  };
+    {
+      name: 'Pending Actions',
+      Total: 0,
+      Active: 0,
+      'Pending Tasks': stats.pendingWithdrawals + stats.pendingKYC
+    }
+  ];
 
   if (loading) {
     return (
@@ -213,15 +150,54 @@ const Dashboard = () => {
 
       </div>
 
-      {/* Highcharts Section */}
+      {/* Recharts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        <div className="p-6 rounded-2xl border bg-white shadow-sm" style={{ borderColor: themeColors.border }}>
-          <HighchartsReact highcharts={Highcharts} options={usersDonutOptions} />
+        <div className="p-6 rounded-2xl border bg-white shadow-sm flex flex-col items-center" style={{ borderColor: themeColors.border }}>
+          <h2 className="text-lg font-bold mb-4" style={{ color: themeColors.text }}>Users Distribution</h2>
+          <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={usersDonutData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="60%"
+                  outerRadius="80%"
+                  paddingAngle={5}
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                >
+                  {usersDonutData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="p-6 rounded-2xl border bg-white shadow-sm" style={{ borderColor: themeColors.border }}>
-          <HighchartsReact highcharts={Highcharts} options={activityColumnOptions} />
+        <div className="p-6 rounded-2xl border bg-white shadow-sm flex flex-col items-center" style={{ borderColor: themeColors.border }}>
+          <h2 className="text-lg font-bold mb-4" style={{ color: themeColors.text }}>System Activity & Pending Tasks</h2>
+          <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={activityBarData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={themeColors.border} />
+                <XAxis dataKey="name" stroke={themeColors.textSecondary} />
+                <YAxis stroke={themeColors.textSecondary} />
+                <RechartsTooltip cursor={{fill: 'transparent'}} />
+                <Legend />
+                <Bar dataKey="Total" fill="#e2e8f0" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="Active" fill="#3b82f6" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="Pending Tasks" fill="#ef4444" radius={[5, 5, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
       </div>

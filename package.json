@@ -14,8 +14,6 @@
     "@tailwindcss/vite": "^4.1.13",
     "axios": "^1.11.0",
     "chart.js": "^4.5.1",
-    "highcharts": "^12.6.0",
-    "highcharts-react-official": "^3.2.3",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
