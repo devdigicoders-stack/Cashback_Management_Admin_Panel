@@ -1,0 +1,279 @@
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { useFont } from "../context/FontContext";
+import { toast } from "sonner";
+import { FaArrowLeft, FaIdCard, FaWallet, FaStore, FaCheckCircle, FaTimesCircle, FaUser } from "react-icons/fa";
+
+const UserDetails = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { themeColors } = useTheme();
+  const { currentFont } = useFont();
+  const { token } = useAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({ user: null, wallet: null, transactions: [] });
+
+  const [processing, setProcessing] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectData, setRejectData] = useState({ documentType: "", reason: "" });
+
+  useEffect(() => {
+    fetchUserDetails();
+  }, [id]);
+
+  const fetchUserDetails = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to fetch user details");
+      }
+
+      setData({
+        user: resData.user,
+        wallet: resData.wallet,
+        transactions: resData.transactions || [],
+      });
+    } catch (err) {
+      toast.error(err.message);
+      navigate("/users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKycAction = async (documentType, action, reason = "") => {
+    if (action === "reject" && !reason) {
+      setRejectData({ documentType, reason: "" });
+      setRejectModalOpen(true);
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${id}/kyc-process`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ documentType, action, rejectionReason: reason }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to process KYC");
+      }
+
+      toast.success(`KYC ${action}d successfully`);
+      setRejectModalOpen(false);
+      fetchUserDetails(); // Refresh data
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (loading || !data.user) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2" style={{ borderColor: themeColors.primary }}></div>
+      </div>
+    );
+  }
+
+  const { user, wallet, transactions } = data;
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6" style={{ fontFamily: currentFont.family, color: themeColors.text }}>
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button onClick={() => navigate("/users")} className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
+          <FaArrowLeft />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">User Details</h1>
+          <p className="text-sm text-gray-500">ID: {user._id}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left Column: Basic Info & Wallet */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Profile Card */}
+          <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-3xl mb-4">
+                <FaUser />
+              </div>
+              <h2 className="text-xl font-bold">{user.name}</h2>
+              <p className="text-gray-500 mb-2">{user.phone}</p>
+              <span className={`px-3 py-1 text-xs rounded-full font-medium uppercase ${user.role === 'electrician' ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'}`}>
+                {user.role}
+              </span>
+            </div>
+            <hr className="my-4 border-gray-200" />
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">Email:</span> <span className="font-medium">{user.email || 'N/A'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Joined:</span> <span className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</span></div>
+            </div>
+          </div>
+
+          {/* Wallet Card */}
+          <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+            <div className="flex items-center gap-2 mb-4">
+              <FaWallet className="text-green-500 text-xl" />
+              <h2 className="text-lg font-bold">Wallet</h2>
+            </div>
+            <div className="text-3xl font-bold text-green-600">₹{wallet?.balance || 0}</div>
+            <p className="text-xs text-gray-500 mt-1">Available Balance</p>
+          </div>
+
+          {/* Shop Details (If Retailer) */}
+          {user.role === 'retailer' && user.shopDetails && (
+            <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+               <div className="flex items-center gap-2 mb-4">
+                <FaStore className="text-purple-500 text-xl" />
+                <h2 className="text-lg font-bold">Shop Details</h2>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-col"><span className="text-gray-500">Shop Name:</span> <span className="font-medium">{user.shopDetails.shopName || 'N/A'}</span></div>
+                <div className="flex flex-col mt-2"><span className="text-gray-500">Address:</span> <span className="font-medium">{user.shopDetails.shopAddress || 'N/A'}</span></div>
+                <div className="flex justify-between mt-2"><span className="text-gray-500">GST:</span> <span className="font-medium">{user.shopDetails.gstNumber || 'N/A'}</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: KYC & Transactions */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* KYC Section */}
+          <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+            <div className="flex items-center gap-2 mb-6">
+              <FaIdCard className="text-blue-500 text-xl" />
+              <h2 className="text-lg font-bold">KYC Verification</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Aadhar Box */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold">Aadhar Card</h3>
+                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.aadhar === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.aadhar === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {user.kycStatus?.aadhar || 'Pending'}
+                  </span>
+                </div>
+                {user.kycStatus?.aadhar === 'submitted' && (
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => handleKycAction('aadhar', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                      <FaCheckCircle /> Approve
+                    </button>
+                    <button onClick={() => handleKycAction('aadhar', 'reject')} disabled={processing} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                      <FaTimesCircle /> Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* PAN Box */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold">PAN Card</h3>
+                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.pan === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.pan === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {user.kycStatus?.pan || 'Pending'}
+                  </span>
+                </div>
+                {user.kycStatus?.pan === 'submitted' && (
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => handleKycAction('pan', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                      <FaCheckCircle /> Approve
+                    </button>
+                    <button onClick={() => handleKycAction('pan', 'reject')} disabled={processing} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                      <FaTimesCircle /> Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {user.kycDetails?.rejectionReason && (
+              <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md text-sm border border-red-200">
+                <strong>Last Rejection Reason:</strong> {user.kycDetails.rejectionReason}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+            <h2 className="text-lg font-bold mb-4">Recent Transactions</h2>
+            {transactions.length === 0 ? (
+              <p className="text-gray-500 text-sm">No transactions found.</p>
+            ) : (
+              <div className="space-y-3">
+                {transactions.map((txn) => (
+                  <div key={txn._id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
+                    <div>
+                      <p className="font-semibold text-sm capitalize">{txn.type.replace('_', ' ')}</p>
+                      <p className="text-xs text-gray-500">{new Date(txn.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div className={`font-bold ${txn.type === 'cashback_credit' ? 'text-green-600' : 'text-red-600'}`}>
+                      {txn.type === 'cashback_credit' ? '+' : '-'}₹{txn.amount}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {/* Reject Modal */}
+      {rejectModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4">Reject {rejectData.documentType.toUpperCase()} KYC</h3>
+            <textarea
+              className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              rows="3"
+              placeholder="Enter rejection reason..."
+              value={rejectData.reason}
+              onChange={(e) => setRejectData({ ...rejectData, reason: e.target.value })}
+            ></textarea>
+            <div className="flex gap-3 mt-4">
+              <button 
+                onClick={() => setRejectModalOpen(false)} 
+                className="flex-1 py-2 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleKycAction(rejectData.documentType, 'reject', rejectData.reason)}
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition disabled:opacity-50"
+                disabled={!rejectData.reason.trim() || processing}
+              >
+                Confirm Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
+
+export default UserDetails;
