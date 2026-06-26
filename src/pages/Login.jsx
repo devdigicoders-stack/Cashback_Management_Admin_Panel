@@ -78,12 +78,15 @@ const Login = () => {
         }}
       >
         {/* Branding Section */}
-        <div className="text-center mb-4">
-          <div className="w-full h-40 mx-auto mb-2 flex items-center justify-center p-1">
+        <div className="text-center mb-4 flex flex-col items-center">
+          <div 
+            className="w-28 h-28 mx-auto mb-3 flex items-center justify-center rounded-full overflow-hidden shadow-sm border-2"
+            style={{ borderColor: themeColors.primary + '40', backgroundColor: themeColors.background }}
+          >
             <img
               src="/logo.png"
               alt="Cashback Logo"
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover p-1 rounded-full"
             />
           </div>
 
