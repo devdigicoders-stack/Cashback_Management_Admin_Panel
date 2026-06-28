@@ -185,6 +185,30 @@ const UserDetails = () => {
                     {user.kycStatus?.aadhar || 'Pending'}
                   </span>
                 </div>
+
+                {user.kycDetails?.aadharNumber && (
+                  <p className="text-sm mt-2"><strong>Aadhar No:</strong> {user.kycDetails.aadharNumber}</p>
+                )}
+                
+                <div className="flex gap-2 mt-3">
+                  {user.kycDetails?.aadharFrontUrl && (
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-500 mb-1">Front</p>
+                      <a href={`${import.meta.env.VITE_API_BASE_URL}${user.kycDetails.aadharFrontUrl}`} target="_blank" rel="noopener noreferrer">
+                        <img src={`${import.meta.env.VITE_API_BASE_URL}${user.kycDetails.aadharFrontUrl}`} alt="Aadhar Front" className="w-full h-24 object-cover rounded border hover:opacity-80 transition cursor-pointer" />
+                      </a>
+                    </div>
+                  )}
+                  {user.kycDetails?.aadharBackUrl && (
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-500 mb-1">Back</p>
+                      <a href={`${import.meta.env.VITE_API_BASE_URL}${user.kycDetails.aadharBackUrl}`} target="_blank" rel="noopener noreferrer">
+                        <img src={`${import.meta.env.VITE_API_BASE_URL}${user.kycDetails.aadharBackUrl}`} alt="Aadhar Back" className="w-full h-24 object-cover rounded border hover:opacity-80 transition cursor-pointer" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+
                 {user.kycStatus?.aadhar === 'submitted' && (
                   <div className="flex gap-2 mt-4">
                     <button onClick={() => handleKycAction('aadhar', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
@@ -205,6 +229,22 @@ const UserDetails = () => {
                     {user.kycStatus?.pan || 'Pending'}
                   </span>
                 </div>
+
+                {user.kycDetails?.panNumber && (
+                  <p className="text-sm mt-2"><strong>PAN No:</strong> {user.kycDetails.panNumber}</p>
+                )}
+
+                <div className="mt-3">
+                  {user.kycDetails?.panCardUrl && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">PAN Image</p>
+                      <a href={`${import.meta.env.VITE_API_BASE_URL}${user.kycDetails.panCardUrl}`} target="_blank" rel="noopener noreferrer">
+                        <img src={`${import.meta.env.VITE_API_BASE_URL}${user.kycDetails.panCardUrl}`} alt="PAN Card" className="w-full h-24 object-cover rounded border hover:opacity-80 transition cursor-pointer max-w-[200px]" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+
                 {user.kycStatus?.pan === 'submitted' && (
                   <div className="flex gap-2 mt-4">
                     <button onClick={() => handleKycAction('pan', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
