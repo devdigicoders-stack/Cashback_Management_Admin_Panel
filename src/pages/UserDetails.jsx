@@ -4,7 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaArrowLeft, FaIdCard, FaWallet, FaStore, FaCheckCircle, FaTimesCircle, FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaIdCard, FaWallet, FaStore, FaCheckCircle, FaTimesCircle, FaUser, FaUniversity } from "react-icons/fa";
 
 const UserDetails = () => {
   const { id } = useParams();
@@ -161,6 +161,22 @@ const UserDetails = () => {
                 <div className="flex flex-col"><span className="text-gray-500">Shop Name:</span> <span className="font-medium">{user.shopDetails.shopName || 'N/A'}</span></div>
                 <div className="flex flex-col mt-2"><span className="text-gray-500">Address:</span> <span className="font-medium">{user.shopDetails.shopAddress || 'N/A'}</span></div>
                 <div className="flex justify-between mt-2"><span className="text-gray-500">GST:</span> <span className="font-medium">{user.shopDetails.gstNumber || 'N/A'}</span></div>
+              </div>
+            </div>
+          )}
+
+          {/* Bank Details */}
+          {user.bankDetails && (
+            <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+               <div className="flex items-center gap-2 mb-4">
+                <FaUniversity className="text-blue-500 text-xl" />
+                <h2 className="text-lg font-bold">Bank Details</h2>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-col"><span className="text-gray-500">Bank Name:</span> <span className="font-medium">{user.bankDetails.bankName || 'N/A'}</span></div>
+                <div className="flex flex-col mt-2"><span className="text-gray-500">Account Holder:</span> <span className="font-medium">{user.bankDetails.accountHolderName || 'N/A'}</span></div>
+                <div className="flex justify-between mt-2"><span className="text-gray-500">Account No:</span> <span className="font-medium">{user.bankDetails.accountNumber || 'N/A'}</span></div>
+                <div className="flex justify-between mt-2"><span className="text-gray-500">IFSC Code:</span> <span className="font-medium">{user.bankDetails.ifscCode || 'N/A'}</span></div>
               </div>
             </div>
           )}
