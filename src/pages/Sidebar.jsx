@@ -217,7 +217,7 @@ const Sidebar = ({
             style={{ backgroundColor: themeColors.background }}
           >
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center mr-3 border"
+              className="w-10 h-10 rounded-full flex items-center justify-center mr-3 border overflow-hidden"
               style={{
                 backgroundColor: themeColors.primary,
                 color: themeColors.onPrimary,
@@ -225,7 +225,11 @@ const Sidebar = ({
               }}
               aria-hidden="true"
             >
-              <FaUserCircle className="text-lg" />
+              {user?.profileImage ? (
+                <img src={`${import.meta.env.VITE_API_BASE_URL}${user.profileImage}`} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <FaUserCircle className="text-lg" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p

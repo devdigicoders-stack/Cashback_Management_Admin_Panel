@@ -3,7 +3,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaCog, FaSave, FaPhone, FaEnvelope, FaLink, FaShareAlt, FaShieldAlt, FaFileContract, FaInfoCircle } from "react-icons/fa";
+import { FaCog, FaSave, FaPhone, FaEnvelope, FaLink, FaShareAlt, FaShieldAlt, FaFileContract, FaInfoCircle, FaQuestionCircle } from "react-icons/fa";
 import api from "../utils/api";
 
 const AppSettings = () => {
@@ -22,6 +22,7 @@ const AppSettings = () => {
     privacyPolicy: "",
     termsAndConditions: "",
     aboutUs: "",
+    faq: [],
   });
 
   useEffect(() => {
@@ -47,6 +48,7 @@ const AppSettings = () => {
           privacyPolicy: data.config.privacyPolicy || "",
           termsAndConditions: data.config.termsAndConditions || "",
           aboutUs: data.config.aboutUs || "",
+          faq: data.config.faq || [],
         });
       }
     } catch (err) {
@@ -58,6 +60,24 @@ const AppSettings = () => {
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleAddFaq = () => {
+    setFormData({
+      ...formData,
+      faq: [...formData.faq, { question: "", answer: "" }],
+    });
+  };
+
+  const handleFaqChange = (index, field, value) => {
+    const newFaq = [...formData.faq];
+    newFaq[index][field] = value;
+    setFormData({ ...formData, faq: newFaq });
+  };
+
+  const handleRemoveFaq = (index) => {
+    const newFaq = formData.faq.filter((_, i) => i !== index);
+    setFormData({ ...formData, faq: newFaq });
   };
 
   const handleSave = async (e) => {
@@ -231,6 +251,64 @@ const AppSettings = () => {
                 placeholder="Enter information about your company..."
               ></textarea>
             </div>
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="rounded-xl shadow-sm border overflow-hidden transition-all hover:shadow-md" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+          <div className="px-6 py-4 border-b flex justify-between items-center gap-3" style={{ borderColor: themeColors.border, backgroundColor: themeColors.background }}>
+            <div className="flex items-center gap-3">
+              <FaQuestionCircle className="text-orange-500 text-lg" /> 
+              <h2 className="font-bold text-lg">Frequently Asked Questions (FAQ)</h2>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddFaq}
+              className="text-sm px-3 py-1 rounded bg-blue-500 text-white font-medium hover:bg-blue-600 transition"
+            >
+              + Add FAQ
+            </button>
+          </div>
+          <div className="p-6 space-y-6">
+            {formData.faq.length === 0 ? (
+              <p className="text-sm italic opacity-60">No FAQs added yet. Click "+ Add FAQ" to create one.</p>
+            ) : (
+              formData.faq.map((item, index) => (
+                <div key={index} className="p-4 border rounded-lg space-y-4 relative" style={{ borderColor: themeColors.border }}>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFaq(index)}
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold"
+                  >
+                    × Remove
+                  </button>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Question</label>
+                    <input
+                      type="text"
+                      value={item.question}
+                      onChange={(e) => handleFaqChange(index, 'question', e.target.value)}
+                      className="w-full border rounded-md p-2 text-sm bg-transparent"
+                      style={{ borderColor: themeColors.border, color: themeColors.text }}
+                      placeholder="e.g. How do I get cashback?"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Answer</label>
+                    <textarea
+                      value={item.answer}
+                      onChange={(e) => handleFaqChange(index, 'answer', e.target.value)}
+                      className="w-full border rounded-md p-2 text-sm bg-transparent"
+                      style={{ borderColor: themeColors.border, color: themeColors.text }}
+                      rows="3"
+                      placeholder="Enter the answer..."
+                      required
+                    ></textarea>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

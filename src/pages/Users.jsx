@@ -193,8 +193,24 @@ const Users = () => {
                 currentUsers.map((user) => (
                   <tr key={user._id} className="hover:bg-gray-50 transition-colors border-b last:border-0" style={{ borderColor: themeColors.border }}>
                     <td className="p-4">
-                      <p className="font-semibold">{user.name}</p>
-                      <p className="text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold overflow-hidden">
+                          {user.profileImage ? (
+                            <img 
+                              src={`${import.meta.env.VITE_API_BASE_URL}${user.profileImage}`} 
+                              alt={user.name} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            user.name ? user.name.charAt(0).toUpperCase() : 'U'
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold">{user.name}</p>
+                          <p className="text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="p-4 text-sm font-medium">{user.phone}</td>
                     <td className="p-4">{getRoleBadge(user.role)}</td>

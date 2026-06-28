@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFont } from '../context/FontContext';
-import { User, Mail, Phone, Edit2, Save, X, Shield } from 'lucide-react';
+import { User, Mail, Phone, Edit2, Save, X, Shield, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../utils/api';
 
@@ -20,12 +20,16 @@ const Profile = () => {
     email: '',
     phone: '',
     role: '',
+    profileImage: '',
   });
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
   });
+  
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
 
   useEffect(() => {
     fetchProfile();
@@ -42,11 +46,13 @@ const Profile = () => {
           email: user.email || '',
           phone: user.phone || '',
           role: user.role || '',
+          profileImage: user.profileImage || '',
         });
         setFormData({
           name: user.name || '',
           email: user.email || '',
         });
+        setImagePreview(user.profileImage ? `${import.meta.env.VITE_API_BASE_URL}${user.profileImage}` : '');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -61,22 +67,51 @@ const Profile = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image must be less than 5MB');
+        return;
+      }
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const response = await api.put('/api/auth/profile', formData);
+      const payload = new FormData();
+      payload.append('name', formData.name);
+      payload.append('email', formData.email);
+      if (selectedFile) {
+        payload.append('profileImage', selectedFile);
+      }
+
+      const response = await api.put('/api/auth/profile', payload, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
       if (response.data && response.data.success) {
         toast.success('Profile updated successfully');
         setProfileData((prev) => ({
           ...prev,
           name: formData.name,
           email: formData.email,
+          profileImage: response.data.user.profileImage,
         }));
         
-        // Update context if name changed
-        if (admin && admin.name !== formData.name) {
-          setLoginData({ ...admin, name: formData.name });
+        // Update context if name or image changed
+        if (admin && (admin.name !== formData.name || response.data.user.profileImage)) {
+          setLoginData({ ...admin, name: formData.name, profileImage: response.data.user.profileImage });
         }
         setIsEditing(false);
       }
@@ -107,9 +142,21 @@ const Profile = () => {
         {/* Header Background */}
         <div className="h-32 w-full relative" style={{ background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.primary}80 100%)` }}>
           <div className="absolute -bottom-12 left-8">
-            <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center text-4xl font-bold shadow-md bg-white"
-                 style={{ color: themeColors.primary, borderColor: '#f3f4f6' }}>
-              {profileData.name ? profileData.name.charAt(0).toUpperCase() : 'U'}
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center text-4xl font-bold shadow-md bg-white overflow-hidden"
+                   style={{ color: themeColors.primary, borderColor: '#f3f4f6' }}>
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  profileData.name ? profileData.name.charAt(0).toUpperCase() : 'U'
+                )}
+              </div>
+              {isEditing && (
+                <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera size={24} />
+                  <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                </label>
+              )}
             </div>
           </div>
         </div>
@@ -135,9 +182,12 @@ const Profile = () => {
               </button>
             ) : (
               <button 
+                type="button"
                 onClick={() => {
                   setIsEditing(false);
                   setFormData({ name: profileData.name, email: profileData.email }); // Reset
+                  setSelectedFile(null);
+                  setImagePreview(profileData.profileImage ? `${import.meta.env.VITE_API_BASE_URL}${profileData.profileImage}` : '');
                 }}
                 className="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-gray-100 border shadow-sm"
                 style={{ color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.background }}

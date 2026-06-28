@@ -115,8 +115,17 @@ const UserDetails = () => {
           {/* Profile Card */}
           <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
             <div className="flex flex-col items-center text-center">
-              <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-3xl mb-4">
-                <FaUser />
+              <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-3xl mb-4 overflow-hidden border-2 border-blue-100">
+                {user.profileImage ? (
+                  <img 
+                    src={`${import.meta.env.VITE_API_BASE_URL}${user.profileImage}`} 
+                    alt={user.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <FaUser />
+                )}
               </div>
               <h2 className="text-xl font-bold">{user.name}</h2>
               <p className="text-gray-500 mb-2">{user.phone}</p>
