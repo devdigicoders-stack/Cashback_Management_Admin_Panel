@@ -516,7 +516,7 @@ const QRCodes = () => {
       {/* Details Modal */}
       {detailsModalOpen && selectedProductGroup && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-7xl max-h-[90vh] flex flex-col overflow-hidden">
             
             {/* Modal Header */}
             <div className="flex justify-between items-center p-5 border-b bg-gray-50 shrink-0">
@@ -568,8 +568,8 @@ const QRCodes = () => {
                     <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>QR Code Data</th>
                     <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Type</th>
                     <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Status</th>
-                    <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Scanned By</th>
-                    <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Date Generated</th>
+                    <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Scanned By & Time</th>
+                    <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Date & Time Generated</th>
                     <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Action</th>
                   </tr>
                 </thead>
@@ -605,10 +605,17 @@ const QRCodes = () => {
                           )}
                         </td>
                         <td className="p-4 text-sm text-gray-600">
-                          {qr.scannedBy ? qr.scannedBy.name : "-"}
+                          {qr.scannedBy ? (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-gray-800">{qr.scannedBy.name}</span>
+                              {qr.scannedAt && <span className="text-xs text-gray-500 mt-0.5">{new Date(qr.scannedAt).toLocaleString('en-IN')}</span>}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
                         </td>
                         <td className="p-4 text-sm text-gray-500">
-                          {new Date(qr.createdAt).toLocaleDateString()}
+                          {new Date(qr.createdAt).toLocaleString('en-IN')}
                         </td>
                         <td className="p-4 text-center">
                           <a 
