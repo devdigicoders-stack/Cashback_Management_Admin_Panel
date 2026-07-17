@@ -3,7 +3,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaQrcode, FaBoxOpen, FaLayerGroup, FaBolt, FaCheckCircle, FaSpinner, FaTimes, FaPlus, FaEye, FaDownload } from "react-icons/fa";
+import { FaQrcode, FaBoxOpen, FaLayerGroup, FaBolt, FaCheckCircle, FaSpinner, FaTimes, FaPlus, FaEye, FaDownload, FaPrint } from "react-icons/fa";
 import api from "../utils/api";
 
 const QRCodes = () => {
@@ -36,11 +36,13 @@ const QRCodes = () => {
   const [formData, setFormData] = useState({
     productId: "",
     count: 10,
+    qrType: "electrician"
   });
 
   // Filters State
   const [filterStatus, setFilterStatus] = useState("");
   const [filterProduct, setFilterProduct] = useState("");
+  const [filterModalType, setFilterModalType] = useState("all");
 
   useEffect(() => {
     fetchProducts();
@@ -110,7 +112,8 @@ const QRCodes = () => {
     try {
       const response = await api.post(`/api/admin/qrcodes/generate`, {
         productId: formData.productId,
-        count: Number(formData.count)
+        count: Number(formData.count),
+        qrType: formData.qrType
       });
       
       const data = response.data;
@@ -120,7 +123,7 @@ const QRCodes = () => {
 
       toast.success(data.message || `Successfully generated ${formData.count} codes!`);
       
-      setFormData({ ...formData, count: 10 });
+      setFormData({ ...formData, count: 10, qrType: "electrician" });
       setModalOpen(false);
       fetchQRCodes();
     } catch (err) {
@@ -161,6 +164,124 @@ const QRCodes = () => {
     downloadCSVForGroup(qrcodes, "All");
   };
 
+  const handlePrintSheet = (groupQRs, groupName, sku) => {
+    if (!groupQRs || groupQRs.length === 0) {
+      toast.error("No QR codes available to print.");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Please allow popups to print the sheet.");
+      return;
+    }
+
+    // Pass data to the print window to render client-side
+    const qrDataList = groupQRs.map(qr => qr.code);
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>QR Codes - ${groupName} (${sku})</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            justify-items: center;
+          }
+          .qr-item {
+            text-align: center;
+            border: 1px dashed #ccc;
+            padding: 10px;
+            border-radius: 8px;
+            page-break-inside: avoid;
+          }
+          .qr-image {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 5px auto;
+          }
+          .qr-text {
+            font-size: 10px;
+            color: #333;
+            word-break: break-all;
+          }
+          @media print {
+            body { padding: 0; }
+            .header { margin-bottom: 20px; }
+            .qr-grid {
+              gap: 10px;
+            }
+            .qr-item {
+              border: 1px solid #ddd;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>Product: ${groupName}</h2>
+          <p>SKU: ${sku} | Total QRs: ${groupQRs.length}</p>
+        </div>
+        <div class="qr-grid" id="qr-grid">
+          <!-- JS will render QRs here instantly -->
+        </div>
+        <script>
+          const qrCodesData = ${JSON.stringify(qrDataList)};
+          const grid = document.getElementById('qr-grid');
+          
+          // Render each QR code using client-side library
+          qrCodesData.forEach(code => {
+            const item = document.createElement('div');
+            item.className = 'qr-item';
+            
+            const qrDiv = document.createElement('div');
+            qrDiv.className = 'qr-image';
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'qr-text';
+            textDiv.innerText = code;
+            
+            item.appendChild(qrDiv);
+            item.appendChild(textDiv);
+            grid.appendChild(item);
+            
+            new QRCode(qrDiv, {
+              text: code,
+              width: 120,
+              height: 120,
+              colorDark : "#000000",
+              colorLight : "#ffffff",
+              correctLevel : QRCode.CorrectLevel.M
+            });
+          });
+
+          // Wait for canvases to render (almost instant), then print
+          setTimeout(() => {
+            window.print();
+          }, 1000);
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const groupedQRCodes = useMemo(() => {
     const groups = qrcodes.reduce((acc, qr) => {
       const prodId = qr.productId?._id || 'unknown';
@@ -170,12 +291,26 @@ const QRCodes = () => {
           total: 0,
           scanned: 0,
           generated: 0,
+          retailerCount: 0,
+          electricianCount: 0,
+          retailerScanned: 0,
+          electricianScanned: 0,
           qrcodes: []
         };
       }
       acc[prodId].total += 1;
-      if (qr.status === 'scanned') acc[prodId].scanned += 1;
-      else acc[prodId].generated += 1;
+      
+      if (qr.status === 'scanned') {
+        acc[prodId].scanned += 1;
+        if (qr.qrType === 'retailer') acc[prodId].retailerScanned += 1;
+        else acc[prodId].electricianScanned += 1;
+      } else {
+        acc[prodId].generated += 1;
+      }
+      
+      if (qr.qrType === 'retailer') acc[prodId].retailerCount += 1;
+      else acc[prodId].electricianCount += 1;
+
       acc[prodId].qrcodes.push(qr);
       return acc;
     }, {});
@@ -188,13 +323,16 @@ const QRCodes = () => {
   const totalPages = Math.ceil(groupedQRCodes.length / itemsPerPage) || 1;
   
   // Modal pagination calculations
+  const filteredModalQRCodes = selectedProductGroup ? selectedProductGroup.qrcodes.filter(qr => filterModalType === "all" || qr.qrType === filterModalType) : [];
   const modalIndexOfLastItem = modalCurrentPage * modalItemsPerPage;
   const modalIndexOfFirstItem = modalIndexOfLastItem - modalItemsPerPage;
-  const currentModalQRCodes = selectedProductGroup ? selectedProductGroup.qrcodes.slice(modalIndexOfFirstItem, modalIndexOfLastItem) : [];
-  const modalTotalPages = selectedProductGroup ? (Math.ceil(selectedProductGroup.qrcodes.length / modalItemsPerPage) || 1) : 1;
+  const currentModalQRCodes = filteredModalQRCodes.slice(modalIndexOfFirstItem, modalIndexOfLastItem);
+  const modalTotalPages = Math.ceil(filteredModalQRCodes.length / modalItemsPerPage) || 1;
 
   const handleViewDetails = (group) => {
     setSelectedProductGroup(group);
+    setFilterModalType("all");
+    setModalCurrentPage(1);
     setDetailsModalOpen(true);
   };
 
@@ -268,21 +406,23 @@ const QRCodes = () => {
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Product Name</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>SKU</th>
                 <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Total QRs</th>
-                <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Generated (Unused)</th>
-                <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Scanned (Used)</th>
+                <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Elec. (Gen)</th>
+                <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Retailer (Gen)</th>
+                <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Elec. (Used)</th>
+                <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Retailer (Used)</th>
                 <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loadingCodes ? (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center">
+                  <td colSpan="8" className="p-8 text-center">
                     <FaSpinner className="animate-spin text-2xl mx-auto" style={{ color: themeColors.primary }} />
                   </td>
                 </tr>
               ) : currentGroupedQRCodes.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center text-gray-500">
+                  <td colSpan="8" className="p-8 text-center text-gray-500">
                     No QR codes found matching criteria.
                   </td>
                 </tr>
@@ -298,11 +438,17 @@ const QRCodes = () => {
                     <td className="p-4 text-center font-bold text-gray-700">
                       {group.total}
                     </td>
-                    <td className="p-4 text-center text-blue-600 font-medium">
-                      {group.generated}
+                    <td className="p-4 text-center text-purple-600 font-medium">
+                      {group.electricianCount}
                     </td>
-                    <td className="p-4 text-center text-green-600 font-medium">
-                      {group.scanned}
+                    <td className="p-4 text-center text-orange-600 font-medium">
+                      {group.retailerCount}
+                    </td>
+                    <td className="p-4 text-center text-purple-800 font-medium bg-purple-50">
+                      {group.electricianScanned}
+                    </td>
+                    <td className="p-4 text-center text-orange-800 font-medium bg-orange-50">
+                      {group.retailerScanned}
                     </td>
                     <td className="p-4 text-center">
                       <button 
@@ -370,7 +516,7 @@ const QRCodes = () => {
       {/* Details Modal */}
       {detailsModalOpen && selectedProductGroup && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
             
             {/* Modal Header */}
             <div className="flex justify-between items-center p-5 border-b bg-gray-50 shrink-0">
@@ -383,16 +529,34 @@ const QRCodes = () => {
                   Showing {selectedProductGroup.total} total QR codes (SKU: {selectedProductGroup.product?.sku || "N/A"})
                 </p>
               </div>
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => downloadCSVForGroup(selectedProductGroup.qrcodes, selectedProductGroup.product?.name || "Product")}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm flex items-center gap-2"
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <select
+                  value={filterModalType}
+                  onChange={(e) => setFilterModalType(e.target.value)}
+                  className="border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 bg-white"
+                  style={{ borderColor: themeColors.border }}
                 >
-                  <FaDownload /> Download CSV
-                </button>
-                <button onClick={() => setDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition text-xl p-1">
-                  <FaTimes />
-                </button>
+                  <option value="all">All Types</option>
+                  <option value="electrician">Electrician Only</option>
+                  <option value="retailer">Retailer Only</option>
+                </select>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handlePrintSheet(filteredModalQRCodes, selectedProductGroup.product?.name || "Product", selectedProductGroup.product?.sku || "N/A")}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-sm flex items-center gap-2"
+                  >
+                    <FaPrint /> Print Filtered
+                  </button>
+                  <button 
+                    onClick={() => downloadCSVForGroup(filteredModalQRCodes, selectedProductGroup.product?.name || "Product")}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm flex items-center gap-2"
+                  >
+                    <FaDownload /> Download CSV
+                  </button>
+                  <button onClick={() => setDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition text-xl p-1 ml-2">
+                    <FaTimes />
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -402,6 +566,7 @@ const QRCodes = () => {
                 <thead className="sticky top-0 bg-gray-50 shadow-sm z-10">
                   <tr style={{ color: themeColors.textSecondary }}>
                     <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>QR Code Data</th>
+                    <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Type</th>
                     <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Status</th>
                     <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Scanned By</th>
                     <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Date Generated</th>
@@ -411,7 +576,7 @@ const QRCodes = () => {
                 <tbody>
                   {currentModalQRCodes.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="p-8 text-center text-gray-500">
+                      <td colSpan="6" className="p-8 text-center text-gray-500">
                         No QR codes found for this product.
                       </td>
                     </tr>
@@ -421,6 +586,11 @@ const QRCodes = () => {
                         <td className="p-4">
                           <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded border text-gray-700 select-all">
                             {qr.code}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full ${qr.qrType === 'retailer' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'}`}>
+                            {qr.qrType === 'retailer' ? 'Retailer' : 'Electrician'}
                           </span>
                         </td>
                         <td className="p-4">
@@ -561,6 +731,22 @@ const QRCodes = () => {
                   required
                 />
                 <p className="text-xs mt-1 text-gray-500">Maximum 10,000 at a time.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  QR Type (For Whom?)
+                </label>
+                <select
+                  name="qrType"
+                  value={formData.qrType}
+                  onChange={handleInputChange}
+                  className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-800"
+                  required
+                >
+                  <option value="electrician">Electrician Cashback</option>
+                  <option value="retailer">Retailer Cashback</option>
+                </select>
               </div>
 
               <div className="pt-2">
