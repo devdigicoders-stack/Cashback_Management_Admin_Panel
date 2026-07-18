@@ -177,7 +177,11 @@ const QRCodes = () => {
     }
 
     // Pass data to the print window to render client-side
-    const qrDataList = groupQRs.map(qr => qr.code);
+    const qrDataList = groupQRs.map(qr => ({
+      code: qr.code,
+      qrType: qr.qrType === 'retailer' ? 'Retailer' : 'Electrician',
+      productName: groupName
+    }));
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -214,9 +218,11 @@ const QRCodes = () => {
             margin: 0 auto 5px auto;
           }
           .qr-text {
-            font-size: 10px;
+            font-size: 11px;
             color: #333;
             word-break: break-all;
+            margin-top: 5px;
+            line-height: 1.4;
           }
           @media print {
             body { padding: 0; }
@@ -243,7 +249,7 @@ const QRCodes = () => {
           const grid = document.getElementById('qr-grid');
           
           // Render each QR code using client-side library
-          qrCodesData.forEach(code => {
+          qrCodesData.forEach(data => {
             const item = document.createElement('div');
             item.className = 'qr-item';
             
@@ -252,14 +258,14 @@ const QRCodes = () => {
             
             const textDiv = document.createElement('div');
             textDiv.className = 'qr-text';
-            textDiv.innerText = code;
+            textDiv.innerHTML = '<strong>' + data.productName + '</strong><br/>For: ' + data.qrType + '<br/>' + data.code;
             
             item.appendChild(qrDiv);
             item.appendChild(textDiv);
             grid.appendChild(item);
             
             new QRCode(qrDiv, {
-              text: code,
+              text: data.code,
               width: 120,
               height: 120,
               colorDark : "#000000",
