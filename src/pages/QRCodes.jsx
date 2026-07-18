@@ -258,7 +258,7 @@ const QRCodes = () => {
             
             const textDiv = document.createElement('div');
             textDiv.className = 'qr-text';
-            textDiv.innerHTML = '<strong>' + data.productName + '</strong><br/>For: ' + data.qrType + '<br/>' + data.code;
+            textDiv.innerHTML = data.code;
             
             item.appendChild(qrDiv);
             item.appendChild(textDiv);
