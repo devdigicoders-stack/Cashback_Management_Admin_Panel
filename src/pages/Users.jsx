@@ -4,8 +4,9 @@ import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { FaUserTie, FaBolt, FaStore, FaEye, FaSearch } from "react-icons/fa";
+import { FaUserTie, FaBolt, FaStore, FaEye, FaSearch, FaEdit, FaTrash, FaPowerOff } from "react-icons/fa";
 import api from "../utils/api";
+import Swal from "sweetalert2";
 
 const Users = () => {
   const { themeColors } = useTheme();
@@ -21,6 +22,11 @@ const Users = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Actions states
+  const [processing, setProcessing] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editData, setEditData] = useState({ id: "", name: "", email: "", phone: "", firmName: "" });
 
   useEffect(() => {
     fetchUsers();
@@ -51,6 +57,109 @@ const Users = () => {
       toast.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateUserDetails = async () => {
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${editData.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(editData),
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to update user");
+      }
+
+      toast.success("User details updated successfully");
+      setEditModalOpen(false);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleToggleStatus = async (userId, currentStatus) => {
+    const newStatus = !currentStatus;
+    
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `Do you want to mark this user as ${newStatus ? 'Active' : 'Inactive'}?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, update it!"
+    });
+    
+    if (!result.isConfirmed) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${userId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to update status");
+      }
+
+      toast.success(resData.message);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId, userName) => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `Do you want to completely delete ${userName}? This action cannot be undone.`,
+      icon: "error",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!"
+    });
+    
+    if (!result.isConfirmed) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to delete user");
+      }
+
+      toast.success("User deleted successfully");
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -172,6 +281,7 @@ const Users = () => {
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>User Info</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Phone</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Role</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Status</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>KYC Status</th>
                 <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Actions</th>
               </tr>
@@ -214,14 +324,50 @@ const Users = () => {
                     </td>
                     <td className="p-4 text-sm font-medium">{user.phone}</td>
                     <td className="p-4">{getRoleBadge(user.role)}</td>
+                    <td className="p-4">
+                      {user.isActive ? (
+                        <span className="px-2 py-1 text-xs rounded-md font-medium bg-green-100 text-green-700">Active</span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs rounded-md font-medium bg-red-100 text-red-700">Inactive</span>
+                      )}
+                    </td>
                     <td className="p-4">{getKycBadge(user.kycStatus)}</td>
                     <td className="p-4 text-center">
-                      <button
-                        onClick={() => navigate(`/users/${user._id}`)}
-                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors inline-flex items-center gap-1 text-sm font-medium"
-                      >
-                        <FaEye /> View
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => navigate(`/users/${user._id}`)}
+                          className="p-2 rounded-lg text-white transition-colors bg-blue-600 hover:bg-blue-700 shadow-sm"
+                          title="View Details"
+                        >
+                          <FaEye />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditData({ id: user._id, name: user.name, email: user.email || "", phone: user.phone, firmName: user.firmName || "" });
+                            setEditModalOpen(true);
+                          }}
+                          className="p-2 rounded-lg text-white transition-colors bg-gray-600 hover:bg-gray-700 shadow-sm"
+                          title="Edit User"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(user._id, user.isActive)}
+                          disabled={processing}
+                          className={`p-2 rounded-lg text-white transition-colors shadow-sm ${user.isActive ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'}`}
+                          title={user.isActive ? 'Deactivate' : 'Activate'}
+                        >
+                          <FaPowerOff />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user._id, user.name)}
+                          disabled={processing}
+                          className="p-2 rounded-lg text-white transition-colors bg-red-600 hover:bg-red-700 shadow-sm"
+                          title="Delete User"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -277,6 +423,69 @@ const Users = () => {
         )}
 
       </div>
+
+      {/* Edit User Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4">Edit User Details</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input 
+                  type="text" 
+                  value={editData.name} 
+                  onChange={(e) => setEditData({...editData, name: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input 
+                  type="text" 
+                  value={editData.phone} 
+                  onChange={(e) => setEditData({...editData, phone: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  value={editData.email} 
+                  onChange={(e) => setEditData({...editData, email: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Firm Name (Optional)</label>
+                <input 
+                  type="text" 
+                  value={editData.firmName} 
+                  onChange={(e) => setEditData({...editData, firmName: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setEditModalOpen(false)} 
+                className="flex-1 py-2 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUpdateUserDetails}
+                className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                disabled={processing || !editData.name || !editData.phone}
+              >
+                {processing ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

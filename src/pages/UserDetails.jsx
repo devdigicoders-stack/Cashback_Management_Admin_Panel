@@ -4,7 +4,8 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaArrowLeft, FaIdCard, FaWallet, FaStore, FaCheckCircle, FaTimesCircle, FaUser, FaUniversity } from "react-icons/fa";
+import { FaArrowLeft, FaIdCard, FaWallet, FaStore, FaCheckCircle, FaTimesCircle, FaUser, FaUniversity, FaEdit, FaTrash, FaPowerOff } from "react-icons/fa";
+import Swal from "sweetalert2";
 
 const UserDetails = () => {
   const { id } = useParams();
@@ -19,6 +20,10 @@ const UserDetails = () => {
   const [processing, setProcessing] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectData, setRejectData] = useState({ documentType: "", reason: "" });
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editData, setEditData] = useState({ name: "", email: "", phone: "", firmName: "" });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     fetchUserDetails();
@@ -85,6 +90,109 @@ const UserDetails = () => {
     }
   };
 
+  const handleUpdateUserDetails = async () => {
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(editData),
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to update user");
+      }
+
+      toast.success("User details updated successfully");
+      setEditModalOpen(false);
+      fetchUserDetails();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!data.user) return;
+    const newStatus = !data.user.isActive;
+
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `Do you want to mark this user as ${newStatus ? 'Active' : 'Inactive'}?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, update it!"
+    });
+    
+    if (!result.isConfirmed) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to update status");
+      }
+
+      toast.success(resData.message);
+      fetchUserDetails();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: `Do you want to completely delete ${user.name}? This will remove their account and wallet permanently. This action cannot be undone.`,
+      icon: "error",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!"
+    });
+    
+    if (!result.isConfirmed) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to delete user");
+      }
+
+      toast.success("User deleted successfully");
+      navigate("/users");
+    } catch (err) {
+      toast.error(err.message);
+      setProcessing(false);
+    }
+  };
+
   if (loading || !data.user) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -137,6 +245,36 @@ const UserDetails = () => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-gray-500">Email:</span> <span className="font-medium">{user.email || 'N/A'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Joined:</span> <span className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Status:</span> 
+                <span className={`font-medium px-2 py-0.5 rounded text-xs ${user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {user.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-2 justify-center">
+              <button 
+                onClick={() => {
+                  setEditData({ name: user.name, email: user.email || "", phone: user.phone, firmName: user.firmName || "" });
+                  setEditModalOpen(true);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition"
+              >
+                <FaEdit /> Edit
+              </button>
+              <button 
+                onClick={handleToggleStatus}
+                disabled={processing}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition ${user.isActive ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+              >
+                <FaPowerOff /> {user.isActive ? 'Deactivate' : 'Activate'}
+              </button>
+              <button 
+                onClick={handleDeleteUser}
+                className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition"
+              >
+                <FaTrash /> Delete
+              </button>
             </div>
           </div>
 
@@ -227,10 +365,10 @@ const UserDetails = () => {
 
                 {user.kycStatus?.aadhar?.toLowerCase() === 'submitted' && (
                   <div className="flex gap-2 mt-4">
-                    <button onClick={() => handleKycAction('aadhar', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                    <button onClick={() => handleKycAction('aadhar', 'approve')} disabled={processing} className="flex-1 bg-[#1A365D] hover:bg-opacity-90 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
                       <FaCheckCircle /> Approve
                     </button>
-                    <button onClick={() => handleKycAction('aadhar', 'reject')} disabled={processing} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                    <button onClick={() => handleKycAction('aadhar', 'reject')} disabled={processing} className="flex-1 bg-[#1A365D] hover:bg-opacity-90 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
                       <FaTimesCircle /> Reject
                     </button>
                   </div>
@@ -263,10 +401,10 @@ const UserDetails = () => {
 
                 {user.kycStatus?.pan?.toLowerCase() === 'submitted' && (
                   <div className="flex gap-2 mt-4">
-                    <button onClick={() => handleKycAction('pan', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                    <button onClick={() => handleKycAction('pan', 'approve')} disabled={processing} className="flex-1 bg-[#1A365D] hover:bg-opacity-90 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
                       <FaCheckCircle /> Approve
                     </button>
-                    <button onClick={() => handleKycAction('pan', 'reject')} disabled={processing} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
+                    <button onClick={() => handleKycAction('pan', 'reject')} disabled={processing} className="flex-1 bg-[#1A365D] hover:bg-opacity-90 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
                       <FaTimesCircle /> Reject
                     </button>
                   </div>
@@ -331,6 +469,68 @@ const UserDetails = () => {
                 disabled={!rejectData.reason.trim() || processing}
               >
                 Confirm Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4">Edit User Details</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input 
+                  type="text" 
+                  value={editData.name} 
+                  onChange={(e) => setEditData({...editData, name: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input 
+                  type="text" 
+                  value={editData.phone} 
+                  onChange={(e) => setEditData({...editData, phone: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  value={editData.email} 
+                  onChange={(e) => setEditData({...editData, email: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Firm Name (Optional)</label>
+                <input 
+                  type="text" 
+                  value={editData.firmName} 
+                  onChange={(e) => setEditData({...editData, firmName: e.target.value})} 
+                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setEditModalOpen(false)} 
+                className="flex-1 py-2 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUpdateUserDetails}
+                className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                disabled={processing || !editData.name || !editData.phone}
+              >
+                {processing ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

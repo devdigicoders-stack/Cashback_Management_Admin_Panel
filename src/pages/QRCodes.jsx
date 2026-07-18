@@ -459,7 +459,8 @@ const QRCodes = () => {
                     <td className="p-4 text-center">
                       <button 
                         onClick={() => handleViewDetails(group)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition shadow-sm text-white"
+                        style={{ backgroundColor: '#1A365D' }}
                       >
                         <FaEye /> View QRs
                       </button>
@@ -549,7 +550,8 @@ const QRCodes = () => {
                 <div className="flex gap-2">
                   <button 
                     onClick={() => handlePrintSheet(filteredModalQRCodes, selectedProductGroup.product?.name || "Product", selectedProductGroup.product?.sku || "N/A")}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-sm flex items-center gap-2"
+                    className="px-4 py-2 text-white rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
+                    style={{ backgroundColor: '#1A365D' }}
                   >
                     <FaPrint /> Print Filtered
                   </button>
