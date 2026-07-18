@@ -28,6 +28,7 @@ const Products = () => {
   const initialFormState = {
     name: "",
     sku: "",
+    size: "",
     category: "",
     description: "",
     electricianAmount: 0,
@@ -68,6 +69,7 @@ const Products = () => {
       setFormData({
         name: product.name,
         sku: product.sku,
+        size: product.size || "",
         category: product.category,
         description: product.description || "",
         electricianAmount: product.cashbackConfig?.electricianAmount || 0,
@@ -107,6 +109,7 @@ const Products = () => {
       const payload = {
         name: formData.name,
         sku: formData.sku,
+        size: formData.size,
         category: formData.category,
         description: formData.description,
         cashbackConfig: {
@@ -233,6 +236,7 @@ const Products = () => {
               <tr style={{ backgroundColor: themeColors.background, color: themeColors.textSecondary }}>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Product Name</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>SKU</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Size</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Category</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Cashback (Elec / Ret)</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Status</th>
@@ -262,6 +266,7 @@ const Products = () => {
                       )}
                     </td>
                     <td className="p-4 font-mono text-sm text-gray-600">{product.sku}</td>
+                    <td className="p-4 text-sm text-gray-700">{product.size || "-"}</td>
                     <td className="p-4 text-sm text-gray-700">{product.category}</td>
                     <td className="p-4">
                       <div className="flex flex-col gap-1 text-sm">
@@ -398,17 +403,30 @@ const Products = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                <input
-                  type="text"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Cables & Wires"
-                  className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                  <input
+                    type="text"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Cables & Wires"
+                    className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Size</label>
+                  <input
+                    type="text"
+                    name="size"
+                    value={formData.size}
+                    onChange={handleInputChange}
+                    placeholder="e.g., XL, 5mm, 100g"
+                    className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
 
               <div>
