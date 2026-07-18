@@ -197,7 +197,7 @@ const UserDetails = () => {
               <div className="border rounded-lg p-4 bg-gray-50">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold">Aadhar Card</h3>
-                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.aadhar === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.aadhar === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.aadhar?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.aadhar?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     {user.kycStatus?.aadhar || 'Pending'}
                   </span>
                 </div>
@@ -225,7 +225,7 @@ const UserDetails = () => {
                   )}
                 </div>
 
-                {user.kycStatus?.aadhar === 'submitted' && (
+                {user.kycStatus?.aadhar?.toLowerCase() === 'submitted' && (
                   <div className="flex gap-2 mt-4">
                     <button onClick={() => handleKycAction('aadhar', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
                       <FaCheckCircle /> Approve
@@ -241,7 +241,7 @@ const UserDetails = () => {
               <div className="border rounded-lg p-4 bg-gray-50">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold">PAN Card</h3>
-                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.pan === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.pan === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.pan?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.pan?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     {user.kycStatus?.pan || 'Pending'}
                   </span>
                 </div>
@@ -261,7 +261,7 @@ const UserDetails = () => {
                   )}
                 </div>
 
-                {user.kycStatus?.pan === 'submitted' && (
+                {user.kycStatus?.pan?.toLowerCase() === 'submitted' && (
                   <div className="flex gap-2 mt-4">
                     <button onClick={() => handleKycAction('pan', 'approve')} disabled={processing} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-md text-sm font-medium flex justify-center items-center gap-1 transition">
                       <FaCheckCircle /> Approve
