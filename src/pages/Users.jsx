@@ -351,14 +351,7 @@ const Users = () => {
                         >
                           <FaEdit />
                         </button>
-                        <button
-                          onClick={() => handleToggleStatus(user._id, user.isActive)}
-                          disabled={processing}
-                          className={`p-2 rounded-lg text-white transition-colors shadow-sm ${user.isActive ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'}`}
-                          title={user.isActive ? 'Deactivate' : 'Activate'}
-                        >
-                          <FaPowerOff />
-                        </button>
+
                         <button
                           onClick={() => handleDeleteUser(user._id, user.name)}
                           disabled={processing}
@@ -426,7 +419,7 @@ const Users = () => {
 
       {/* Edit User Modal */}
       {editModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-bold mb-4">Edit User Details</h3>
             <div className="space-y-4">

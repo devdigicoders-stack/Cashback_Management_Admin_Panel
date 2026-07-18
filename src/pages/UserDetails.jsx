@@ -25,6 +25,12 @@ const UserDetails = () => {
   const [editData, setEditData] = useState({ name: "", email: "", phone: "", firmName: "" });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
+  // KYC Upload States
+  const [uploadAadharModalOpen, setUploadAadharModalOpen] = useState(false);
+  const [aadharUploadData, setAadharUploadData] = useState({ aadharNumber: "", aadharFront: null, aadharBack: null });
+  const [uploadPanModalOpen, setUploadPanModalOpen] = useState(false);
+  const [panUploadData, setPanUploadData] = useState({ panNumber: "", panCard: null });
+
   useEffect(() => {
     fetchUserDetails();
   }, [id]);
@@ -83,6 +89,56 @@ const UserDetails = () => {
       toast.success(`KYC ${action}d successfully`);
       setRejectModalOpen(false);
       fetchUserDetails(); // Refresh data
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleUploadKYC = async (documentType) => {
+    setProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("documentType", documentType);
+
+      if (documentType === "aadhar") {
+        if (!aadharUploadData.aadharFront || !aadharUploadData.aadharBack) {
+          throw new Error("Both Aadhar Front and Back images are required");
+        }
+        formData.append("aadharNumber", aadharUploadData.aadharNumber);
+        formData.append("aadharFront", aadharUploadData.aadharFront);
+        formData.append("aadharBack", aadharUploadData.aadharBack);
+      } else if (documentType === "pan") {
+        if (!panUploadData.panCard) {
+          throw new Error("PAN Card image is required");
+        }
+        formData.append("panNumber", panUploadData.panNumber);
+        formData.append("panCard", panUploadData.panCard);
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/users/${id}/kyc`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData, // No Content-Type header when using FormData
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        throw new Error(resData.message || "Failed to upload KYC");
+      }
+
+      toast.success(`${documentType.toUpperCase()} KYC uploaded and approved successfully`);
+      if (documentType === "aadhar") {
+        setUploadAadharModalOpen(false);
+        setAadharUploadData({ aadharNumber: "", aadharFront: null, aadharBack: null });
+      } else {
+        setUploadPanModalOpen(false);
+        setPanUploadData({ panNumber: "", panCard: null });
+      }
+      fetchUserDetails();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -335,9 +391,14 @@ const UserDetails = () => {
               <div className="border rounded-lg p-4 bg-gray-50">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold">Aadhar Card</h3>
-                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.aadhar?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.aadhar?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                    {user.kycStatus?.aadhar || 'Pending'}
-                  </span>
+                  <div className="flex gap-2 items-center">
+                    <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.aadhar?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.aadhar?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {user.kycStatus?.aadhar || 'Pending'}
+                    </span>
+                    {(user.kycStatus?.aadhar !== 'approved' && user.kycStatus?.aadhar !== 'submitted') && (
+                      <button onClick={() => setUploadAadharModalOpen(true)} className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">Upload</button>
+                    )}
+                  </div>
                 </div>
 
                 {user.kycDetails?.aadharNumber && (
@@ -379,9 +440,14 @@ const UserDetails = () => {
               <div className="border rounded-lg p-4 bg-gray-50">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold">PAN Card</h3>
-                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.pan?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.pan?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                    {user.kycStatus?.pan || 'Pending'}
-                  </span>
+                  <div className="flex gap-2 items-center">
+                    <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${user.kycStatus?.pan?.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' : user.kycStatus?.pan?.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {user.kycStatus?.pan || 'Pending'}
+                    </span>
+                    {(user.kycStatus?.pan !== 'approved' && user.kycStatus?.pan !== 'submitted') && (
+                      <button onClick={() => setUploadPanModalOpen(true)} className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">Upload</button>
+                    )}
+                  </div>
                 </div>
 
                 {user.kycDetails?.panNumber && (
@@ -446,8 +512,8 @@ const UserDetails = () => {
 
       {/* Reject Modal */}
       {rejectModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-gray-100">
             <h3 className="text-lg font-bold mb-4">Reject {rejectData.documentType.toUpperCase()} KYC</h3>
             <textarea
               className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -477,8 +543,8 @@ const UserDetails = () => {
 
       {/* Edit User Modal */}
       {editModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-gray-100">
             <h3 className="text-lg font-bold mb-4">Edit User Details</h3>
             <div className="space-y-4">
               <div>
@@ -531,6 +597,110 @@ const UserDetails = () => {
                 disabled={processing || !editData.name || !editData.phone}
               >
                 {processing ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Aadhar Modal */}
+      {uploadAadharModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+              <FaIdCard className="text-[#1A365D]" /> Upload Aadhar
+            </h3>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Aadhar Number</label>
+                <input 
+                  type="text" 
+                  value={aadharUploadData.aadharNumber} 
+                  onChange={(e) => setAadharUploadData({...aadharUploadData, aadharNumber: e.target.value})} 
+                  className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#1A365D] focus:border-transparent outline-none bg-gray-50 transition" 
+                  placeholder="Enter 12-digit Aadhar Number"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Front Image</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setAadharUploadData({...aadharUploadData, aadharFront: e.target.files[0]})} 
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Back Image</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setAadharUploadData({...aadharUploadData, aadharBack: e.target.files[0]})} 
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer" 
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button 
+                onClick={() => setUploadAadharModalOpen(false)} 
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleUploadKYC("aadhar")}
+                className="flex-1 py-2.5 bg-[#1A365D] text-white rounded-xl font-semibold hover:bg-opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={processing || !aadharUploadData.aadharNumber || !aadharUploadData.aadharFront || !aadharUploadData.aadharBack}
+              >
+                {processing ? 'Uploading...' : 'Submit Aadhar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload PAN Modal */}
+      {uploadPanModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+              <FaIdCard className="text-[#1A365D]" /> Upload PAN
+            </h3>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">PAN Number</label>
+                <input 
+                  type="text" 
+                  value={panUploadData.panNumber} 
+                  onChange={(e) => setPanUploadData({...panUploadData, panNumber: e.target.value.toUpperCase()})} 
+                  className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#1A365D] focus:border-transparent outline-none bg-gray-50 transition uppercase" 
+                  placeholder="Enter 10-character PAN"
+                  maxLength={10}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">PAN Image</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setPanUploadData({...panUploadData, panCard: e.target.files[0]})} 
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer" 
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button 
+                onClick={() => setUploadPanModalOpen(false)} 
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleUploadKYC("pan")}
+                className="flex-1 py-2.5 bg-[#1A365D] text-white rounded-xl font-semibold hover:bg-opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={processing || !panUploadData.panNumber || !panUploadData.panCard}
+              >
+                {processing ? 'Uploading...' : 'Submit PAN'}
               </button>
             </div>
           </div>
