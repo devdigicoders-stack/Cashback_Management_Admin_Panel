@@ -2,14 +2,14 @@ import { memo } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useFont } from "../context/FontContext";
 import { useAuth } from "../context/AuthContext";
-import { FaUserCircle } from "react-icons/fa";
+import { FaUserCircle, FaSun, FaMoon } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 const Header = memo(({
   toggleSidebar,
   currentPageTitle
 }) => {
-  const { themeColors } = useTheme();
+  const { themeColors, theme, toggleTheme } = useTheme();
   const { currentFont } = useFont();
   const { admin } = useAuth();
   const navigate = useNavigate();
@@ -45,7 +45,22 @@ const Header = memo(({
         </h2>
       </div>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-3 sm:space-x-4">
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          className="p-2 rounded-xl border shadow-sm transition-all duration-300 hover:scale-105 flex items-center justify-center"
+          style={{
+            backgroundColor: themeColors.background,
+            borderColor: themeColors.border,
+            color: theme === 'dark' ? '#f59e0b' : '#3b82f6',
+          }}
+          aria-label="Toggle Theme"
+        >
+          {theme === 'dark' ? <FaSun className="text-lg" /> : <FaMoon className="text-lg" />}
+        </button>
+
         {/* Profile Section */}
         <div 
           onClick={() => navigate("/profile")}

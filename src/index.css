@@ -6,3 +6,144 @@
 body {
   font-family: var(--app-font);
 }
+
+/* ====================================================
+   🌙 DARK MODE COMPREHENSIVE GLOBAL STYLES & OVERRIDES
+   ==================================================== */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Force dark surface for hardcoded white cards, boxes, and containers */
+html.dark .bg-white {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+/* Hardcoded Light Gray Backgrounds -> Dark Surfaces */
+html.dark .bg-gray-50,
+html.dark .bg-gray-100 {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark .bg-gray-200 {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* Hover States in Dark Mode */
+html.dark .hover\:bg-gray-50:hover,
+html.dark .hover\:bg-gray-100:hover,
+html.dark .hover\:bg-gray-200:hover {
+  background-color: #334155 !important;
+}
+
+/* Hardcoded Text Colors -> High Contrast Text for Dark Mode */
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-gray-600,
+html.dark .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-gray-400 {
+  color: #cbd5e1 !important;
+}
+
+/* Hardcoded Border Colors */
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 {
+  border-color: #334155 !important;
+}
+
+/* Form Controls (Inputs, Selects, Textareas, Options) */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark select option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+/* Dashboard Summary Card Icon Badges */
+html.dark .bg-orange-100 {
+  background-color: rgba(249, 115, 22, 0.2) !important;
+}
+html.dark .bg-purple-100 {
+  background-color: rgba(139, 92, 246, 0.2) !important;
+}
+html.dark .bg-red-100 {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+html.dark .bg-green-100 {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+}
+html.dark .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Recharts Graphs Tooltip, Legend & Axis Styling in Dark Mode */
+html.dark .recharts-default-tooltip {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 8px !important;
+}
+
+html.dark .recharts-tooltip-label,
+html.dark .recharts-tooltip-item,
+html.dark .recharts-tooltip-item-list li {
+  color: #f8fafc !important;
+}
+
+html.dark .recharts-legend-item-text {
+  color: #cbd5e1 !important;
+}
+
+html.dark .recharts-cartesian-grid line {
+  stroke: #334155 !important;
+}
+
+html.dark .recharts-text.recharts-cartesian-axis-tick-value {
+  fill: #94a3b8 !important;
+}
+
+/* Custom Scrollbar for Dark Mode */
+html.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+html.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+

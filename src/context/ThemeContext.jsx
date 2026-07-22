@@ -167,7 +167,7 @@ export const ThemeProvider = ({ children }) => {
       background: currentPalette.backgroundDark,
       surface: currentPalette.surfaceDark,
       text: currentPalette.textDark,
-      textSecondary: currentPalette.secondary,
+      textSecondary: "#94a3b8",
       border: currentPalette.borderDark,
       hover: {
         background: currentPalette.hoverDark,
@@ -175,7 +175,7 @@ export const ThemeProvider = ({ children }) => {
       },
       active: {
         background: currentPalette.activeDark,
-        text: currentPalette.surfaceDark,
+        text: currentPalette.primary,
       },
       onPrimary: '#ffffff',
     },
