@@ -7,7 +7,7 @@ import { FaBolt, FaStore, FaClock, FaRupeeSign, FaSpinner } from "react-icons/fa
 import { toast } from "sonner";
 
 const Dashboard = () => {
-  const { themeColors } = useTheme();
+  const { themeColors, theme } = useTheme();
   const { currentFont } = useFont();
   const { token, user } = useAuth();
 
@@ -89,7 +89,7 @@ const Dashboard = () => {
       
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-bold" style={{ color: themeColors.text }}>Dashboard</h1>
         <p className="mt-1 text-base" style={{ color: themeColors.textSecondary }}>
           Welcome back, {user?.name || 'Admin'}. Here is your system's live overview.
         </p>
@@ -99,37 +99,37 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Card 1: Electricians */}
-        <div className="p-6 rounded-2xl shadow-sm border bg-white flex items-center gap-4 transition hover:shadow-md">
+        <div className="p-6 rounded-2xl shadow-sm border flex items-center gap-4 transition hover:shadow-md" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
           <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 text-2xl">
             <FaBolt />
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-500">Total Electricians</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.totalElectricians}</h3>
-            <p className="text-xs font-medium text-green-600 mt-1">{stats.totalActiveElectricians} Active</p>
+            <p className="text-sm font-semibold" style={{ color: themeColors.textSecondary }}>Total Electricians</p>
+            <h3 className="text-2xl font-bold" style={{ color: themeColors.text }}>{stats.totalElectricians}</h3>
+            <p className="text-xs font-medium text-green-500 mt-1">{stats.totalActiveElectricians} Active</p>
           </div>
         </div>
 
         {/* Card 2: Retailers */}
-        <div className="p-6 rounded-2xl shadow-sm border bg-white flex items-center gap-4 transition hover:shadow-md">
+        <div className="p-6 rounded-2xl shadow-sm border flex items-center gap-4 transition hover:shadow-md" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
           <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-2xl">
             <FaStore />
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-500">Total Retailers</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.totalRetailers}</h3>
-            <p className="text-xs font-medium text-green-600 mt-1">{stats.totalActiveRetailers} Active</p>
+            <p className="text-sm font-semibold" style={{ color: themeColors.textSecondary }}>Total Retailers</p>
+            <h3 className="text-2xl font-bold" style={{ color: themeColors.text }}>{stats.totalRetailers}</h3>
+            <p className="text-xs font-medium text-green-500 mt-1">{stats.totalActiveRetailers} Active</p>
           </div>
         </div>
 
         {/* Card 3: Pending Tasks */}
-        <div className="p-6 rounded-2xl shadow-sm border bg-white flex items-center gap-4 transition hover:shadow-md">
-          <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-2xl">
+        <div className="p-6 rounded-2xl shadow-sm border flex items-center gap-4 transition hover:shadow-md" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+          <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center text-red-500 text-2xl">
             <FaClock />
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-500">Pending Actions</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.pendingWithdrawals + stats.pendingKYC}</h3>
+            <p className="text-sm font-semibold" style={{ color: themeColors.textSecondary }}>Pending Actions</p>
+            <h3 className="text-2xl font-bold" style={{ color: themeColors.text }}>{stats.pendingWithdrawals + stats.pendingKYC}</h3>
             <p className="text-xs font-medium text-red-500 mt-1">
               {stats.pendingWithdrawals} Payouts, {stats.pendingKYC} KYCs
             </p>
@@ -137,14 +137,14 @@ const Dashboard = () => {
         </div>
 
         {/* Card 4: Total Cashback Paid */}
-        <div className="p-6 rounded-2xl shadow-sm border bg-white flex items-center gap-4 transition hover:shadow-md">
-          <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-2xl">
+        <div className="p-6 rounded-2xl shadow-sm border flex items-center gap-4 transition hover:shadow-md" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+          <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-green-500 text-2xl">
             <FaRupeeSign />
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-500">Total Cashback Paid</p>
-            <h3 className="text-2xl font-bold text-gray-800">₹{stats.totalCashbackPaid.toLocaleString()}</h3>
-            <p className="text-xs font-medium text-gray-400 mt-1">Lifetime</p>
+            <p className="text-sm font-semibold" style={{ color: themeColors.textSecondary }}>Total Cashback Paid</p>
+            <h3 className="text-2xl font-bold" style={{ color: themeColors.text }}>₹{stats.totalCashbackPaid.toLocaleString()}</h3>
+            <p className="text-xs font-medium mt-1" style={{ color: themeColors.textSecondary }}>Lifetime</p>
           </div>
         </div>
 
@@ -153,7 +153,7 @@ const Dashboard = () => {
       {/* Recharts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        <div className="p-6 rounded-2xl border bg-white shadow-sm flex flex-col items-center" style={{ borderColor: themeColors.border }}>
+        <div className="p-6 rounded-2xl border shadow-sm flex flex-col items-center" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
           <h2 className="text-lg font-bold mb-4" style={{ color: themeColors.text }}>Users Distribution</h2>
           <div className="w-full h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -167,6 +167,7 @@ const Dashboard = () => {
                   paddingAngle={5}
                   dataKey="value"
                   label={({ name, value }) => `${name}: ${value}`}
+                  labelLine={true}
                 >
                   {usersDonutData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -179,7 +180,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="p-6 rounded-2xl border bg-white shadow-sm flex flex-col items-center" style={{ borderColor: themeColors.border }}>
+        <div className="p-6 rounded-2xl border shadow-sm flex flex-col items-center" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
           <h2 className="text-lg font-bold mb-4" style={{ color: themeColors.text }}>System Activity & Pending Tasks</h2>
           <div className="w-full h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -192,7 +193,7 @@ const Dashboard = () => {
                 <YAxis stroke={themeColors.textSecondary} />
                 <RechartsTooltip cursor={{fill: 'transparent'}} />
                 <Legend />
-                <Bar dataKey="Total" fill="#e2e8f0" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="Total" fill={theme === 'dark' ? '#334155' : '#cbd5e1'} radius={[5, 5, 0, 0]} />
                 <Bar dataKey="Active" fill="#3b82f6" radius={[5, 5, 0, 0]} />
                 <Bar dataKey="Pending Tasks" fill="#ef4444" radius={[5, 5, 0, 0]} />
               </BarChart>
