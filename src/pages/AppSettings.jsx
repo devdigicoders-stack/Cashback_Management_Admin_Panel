@@ -41,8 +41,8 @@ const AppSettings = () => {
 
       if (data.config) {
         setFormData({
-          contactPhone: data.config.contactPhone || "",
-          contactEmail: data.config.contactEmail || "",
+          contactPhone: data.config.contactPhone || "9194702054",
+          contactEmail: data.config.contactEmail || "augustfortis@gmail.com",
           rateUsUrl: data.config.rateUsUrl || "",
           shareAppText: data.config.shareAppText || "",
           privacyPolicy: data.config.privacyPolicy || "",
