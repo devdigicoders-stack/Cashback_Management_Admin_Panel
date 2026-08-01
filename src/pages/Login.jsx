@@ -80,13 +80,13 @@ const Login = () => {
         {/* Branding Section */}
         <div className="text-center mb-4 flex flex-col items-center">
           <div 
-            className="w-28 h-28 mx-auto mb-3 flex items-center justify-center rounded-full overflow-hidden shadow-sm border-2"
-            style={{ borderColor: themeColors.primary + '40', backgroundColor: themeColors.background }}
+            className="w-48 h-20 mx-auto mb-3 flex items-center justify-center rounded-2xl shadow-sm border p-2 bg-white"
+            style={{ borderColor: themeColors.primary + '30' }}
           >
             <img
               src="/logo.png"
               alt="August Fortis Logo"
-              className="w-full h-full object-contain p-2"
+              className="w-full h-full object-contain"
             />
           </div>
 

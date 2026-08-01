@@ -170,7 +170,9 @@ const Sidebar = ({
           style={{ borderColor: themeColors.border }}
         >
           <div className="flex items-center">
-            <img src="/logo.png" alt="August Fortis Logo" className="w-8 h-8 mr-2 rounded object-contain" />
+            <div className="bg-white p-1 rounded-md shadow-xs mr-2.5 flex items-center justify-center border border-gray-100">
+              <img src="/logo.png" alt="August Fortis Logo" className="h-7 w-auto object-contain" />
+            </div>
             <h1
               className="text-lg font-bold tracking-tight"
               style={{ color: themeColors.primary }}
