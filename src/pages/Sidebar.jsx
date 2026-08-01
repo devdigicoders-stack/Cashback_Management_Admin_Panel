@@ -170,12 +170,12 @@ const Sidebar = ({
           style={{ borderColor: themeColors.border }}
         >
           <div className="flex items-center">
-            <img src="/logo.png" alt="Cashback Logo" className="w-8 h-8 mr-2 rounded" />
+            <img src="/logo.png" alt="August Fortis Logo" className="w-8 h-8 mr-2 rounded object-contain" />
             <h1
-              className="text-xl font-bold"
+              className="text-lg font-bold tracking-tight"
               style={{ color: themeColors.primary }}
             >
-              Cashback
+              August Fortis
             </h1>
           </div>
           <button

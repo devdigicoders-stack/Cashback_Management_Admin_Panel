@@ -85,8 +85,8 @@ const Login = () => {
           >
             <img
               src="/logo.png"
-              alt="Cashback Logo"
-              className="w-full h-full object-cover p-1 rounded-full"
+              alt="August Fortis Logo"
+              className="w-full h-full object-contain p-2"
             />
           </div>
 
@@ -94,7 +94,7 @@ const Login = () => {
             className="text-2xl font-bold mb-1"
             style={{ color: themeColors.primary }}
           >
-            Cashback
+            August Fortis
           </h1>
 
           <p
