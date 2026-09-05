@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { FaUserTie, FaBolt, FaStore, FaEye, FaSearch, FaEdit, FaTrash, FaPowerOff } from "react-icons/fa";
+import { FaUserTie, FaBolt, FaStore, FaEye, FaSearch, FaEdit, FaTrash, FaCheck, FaBan } from "react-icons/fa";
 import api from "../utils/api";
 import Swal from "sweetalert2";
 
@@ -334,6 +334,28 @@ const Users = () => {
                     <td className="p-4">{getKycBadge(user.kycStatus)}</td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-2">
+                         {/* Approve / Reject buttons for Inactive users */}
+                         {!user.isActive && (
+                          <button
+                            onClick={() => handleToggleStatus(user._id, user.isActive)}
+                            disabled={processing}
+                            className="p-2 rounded-lg text-white transition-colors bg-green-600 hover:bg-green-700 shadow-sm"
+                            title="Approve User"
+                          >
+                            <FaCheck />
+                          </button>
+                         )}
+                         {/* Deactivate button for Active users */}
+                         {user.isActive && (
+                          <button
+                            onClick={() => handleToggleStatus(user._id, user.isActive)}
+                            disabled={processing}
+                            className="p-2 rounded-lg text-white transition-colors bg-orange-500 hover:bg-orange-600 shadow-sm"
+                            title="Deactivate User"
+                          >
+                            <FaBan />
+                          </button>
+                         )}
                         <button
                           onClick={() => navigate(`/users/${user._id}`)}
                           className="p-2 rounded-lg text-white transition-colors bg-blue-600 hover:bg-blue-700 shadow-sm"
