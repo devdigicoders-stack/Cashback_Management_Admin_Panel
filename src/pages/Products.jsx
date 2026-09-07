@@ -28,6 +28,7 @@ const Products = () => {
   const initialFormState = {
     name: "",
     sku: "",
+    barcode: "",
     size: "",
     category: "",
     description: "",
@@ -69,6 +70,7 @@ const Products = () => {
       setFormData({
         name: product.name,
         sku: product.sku,
+        barcode: product.barcode || "",
         size: product.size || "",
         category: product.category,
         description: product.description || "",
@@ -109,6 +111,7 @@ const Products = () => {
       const payload = {
         name: formData.name,
         sku: formData.sku,
+        barcode: formData.barcode,
         size: formData.size,
         category: formData.category,
         description: formData.description,
@@ -144,7 +147,8 @@ const Products = () => {
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase())
+      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.barcode && p.barcode.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleToggleStatus = async (product) => {
@@ -153,6 +157,7 @@ const Products = () => {
       const payload = {
         name: product.name,
         sku: product.sku,
+        barcode: product.barcode,
         category: product.category,
         cashbackConfig: product.cashbackConfig,
         isActive: !product.isActive,
@@ -220,7 +225,7 @@ const Products = () => {
             </div>
             <input
               type="text"
-              placeholder="Search by name or SKU..."
+              placeholder="Search by name, SKU or Barcode..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 p-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2"
@@ -236,6 +241,7 @@ const Products = () => {
               <tr style={{ backgroundColor: themeColors.background, color: themeColors.textSecondary }}>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Product Name</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>SKU</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Barcode</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Size</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Category</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Cashback (Elec / Ret)</th>
@@ -266,6 +272,7 @@ const Products = () => {
                       )}
                     </td>
                     <td className="p-4 font-mono text-sm text-gray-600">{product.sku}</td>
+                    <td className="p-4 font-mono text-sm text-gray-600">{product.barcode || "-"}</td>
                     <td className="p-4 text-sm text-gray-700">{product.size || "-"}</td>
                     <td className="p-4 text-sm text-gray-700">{product.category}</td>
                     <td className="p-4">
@@ -404,6 +411,18 @@ const Products = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Barcode (Unique ID) *</label>
+                  <input
+                    type="text"
+                    name="barcode"
+                    value={formData.barcode}
+                    onChange={handleInputChange}
+                    placeholder="e.g., BAR-001"
+                    className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                   <input
