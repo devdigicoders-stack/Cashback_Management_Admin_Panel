@@ -165,7 +165,10 @@ const Users = () => {
 
   const filteredUsers = users.filter((user) =>
     user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.phone?.includes(searchQuery)
+    user.phone?.includes(searchQuery) ||
+    user.salesCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.salesPerson?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.salesPerson?.code?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Pagination Logic
@@ -281,6 +284,7 @@ const Users = () => {
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>User Info</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Phone</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Role</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Onboarded By</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Status</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>KYC Status</th>
                 <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Actions</th>
@@ -289,13 +293,13 @@ const Users = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center">
+                  <td colSpan="7" className="p-8 text-center">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2" style={{ borderColor: themeColors.primary }}></div>
                   </td>
                 </tr>
               ) : currentUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                  <td colSpan="7" className="p-8 text-center text-gray-500">
                     No users found.
                   </td>
                 </tr>
@@ -324,6 +328,24 @@ const Users = () => {
                     </td>
                     <td className="p-4 text-sm font-medium">{user.phone}</td>
                     <td className="p-4">{getRoleBadge(user.role)}</td>
+                    <td className="p-4">
+                      {user.salesPerson ? (
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-xs text-blue-700 flex items-center gap-1">
+                            <FaUserTie className="text-[10px]" /> {user.salesPerson.name}
+                          </span>
+                          <span className="text-[10px] font-mono text-gray-500">
+                            Code: {user.salesPerson.code || user.salesCode}
+                          </span>
+                        </div>
+                      ) : user.salesCode ? (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-blue-50 text-blue-700 border border-blue-200">
+                          {user.salesCode}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">Direct Signup</span>
+                      )}
+                    </td>
                     <td className="p-4">
                       {user.isActive ? (
                         <span className="px-2 py-1 text-xs rounded-md font-medium bg-green-100 text-green-700">Active</span>

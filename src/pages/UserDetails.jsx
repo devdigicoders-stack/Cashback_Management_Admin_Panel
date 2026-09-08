@@ -4,7 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaArrowLeft, FaIdCard, FaWallet, FaStore, FaCheckCircle, FaTimesCircle, FaUser, FaUniversity, FaEdit, FaTrash, FaPowerOff } from "react-icons/fa";
+import { FaArrowLeft, FaIdCard, FaWallet, FaStore, FaCheckCircle, FaTimesCircle, FaUser, FaUserTie, FaUniversity, FaEdit, FaTrash, FaPowerOff } from "react-icons/fa";
 import Swal from "sweetalert2";
 
 const UserDetails = () => {
@@ -327,11 +327,58 @@ const UserDetails = () => {
               </button>
               <button 
                 onClick={handleDeleteUser}
-                className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition"
+                className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition cursor-pointer"
               >
                 <FaTrash /> Delete
               </button>
             </div>
+          </div>
+
+          {/* Onboarding / Sales Referral Details Card */}
+          <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FaUserTie className="text-blue-500 text-xl" />
+              <h2 className="text-lg font-bold">Onboarding & Referral</h2>
+            </div>
+            {user.salesPerson ? (
+              <div className="space-y-2 text-sm bg-blue-50/70 p-3.5 rounded-xl border border-blue-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Sales Person:</span>
+                  <span className="font-bold text-blue-800">{user.salesPerson.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Sales Code:</span>
+                  <span className="font-mono font-bold text-xs bg-white px-2 py-0.5 rounded border border-blue-200 text-blue-700">
+                    {user.salesPerson.code || user.salesCode}
+                  </span>
+                </div>
+                {user.salesPerson.phone && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Agent Phone:</span>
+                    <span className="font-medium text-gray-700">{user.salesPerson.phone}</span>
+                  </div>
+                )}
+                {user.salesPerson.city && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Region / City:</span>
+                    <span className="font-medium text-gray-700">{user.salesPerson.city}</span>
+                  </div>
+                )}
+              </div>
+            ) : user.salesCode ? (
+              <div className="space-y-2 text-sm bg-gray-50 p-3.5 rounded-xl border">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Referral Code Used:</span>
+                  <span className="font-mono font-bold text-xs bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-blue-700">
+                    {user.salesCode}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 bg-gray-50 p-3.5 rounded-xl border text-center">
+                Direct User Registration (No sales referral code)
+              </div>
+            )}
           </div>
 
           {/* Wallet Card */}
