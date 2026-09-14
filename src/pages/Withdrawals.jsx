@@ -3,8 +3,9 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaMoneyBillWave, FaCheckCircle, FaTimesCircle, FaClock, FaEye } from "react-icons/fa";
+import { FaMoneyBillWave, FaCheckCircle, FaTimesCircle, FaClock, FaEye, FaDownload } from "react-icons/fa";
 import api from "../utils/api";
+import { exportToExcel } from "../utils/excelExport";
 
 const Withdrawals = () => {
   const { themeColors } = useTheme();
@@ -53,6 +54,23 @@ const Withdrawals = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportWithdrawalsExcel = () => {
+    const columns = [
+      { label: "User Name", key: (w) => w.userId?.name || "N/A" },
+      { label: "Phone Number", key: (w) => w.userId?.phone || "N/A" },
+      { label: "Role", key: (w) => w.userId?.role || "N/A" },
+      { label: "Requested Amount (₹)", key: "amount" },
+      { label: "Account Holder", key: (w) => w.bankDetails?.accountHolderName || "-" },
+      { label: "Account Number", key: (w) => w.bankDetails?.accountNumber || "-" },
+      { label: "IFSC Code", key: (w) => w.bankDetails?.ifscCode || "-" },
+      { label: "Bank Name", key: (w) => w.bankDetails?.bankName || "-" },
+      { label: "Status", key: "status" },
+      { label: "Admin Remarks", key: (w) => w.adminRemarks || "-" },
+      { label: "Requested Date", key: (w) => new Date(w.createdAt).toLocaleString("en-IN") },
+    ];
+    exportToExcel(withdrawals, columns, `Payouts_Withdrawals_${filterStatus}`);
   };
 
   const handleProcessClick = (id) => {
@@ -113,6 +131,12 @@ const Withdrawals = () => {
             Manage payout requests from Electricians and Retailers.
           </p>
         </div>
+        <button
+          onClick={handleExportWithdrawalsExcel}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-white font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm text-sm"
+        >
+          <FaDownload /> Export Excel
+        </button>
       </div>
 
       <div className="rounded-xl shadow-sm border overflow-hidden" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>

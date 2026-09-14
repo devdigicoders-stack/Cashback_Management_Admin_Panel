@@ -3,8 +3,9 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaGift, FaRupeeSign, FaBox, FaListAlt, FaSearch } from "react-icons/fa";
+import { FaGift, FaRupeeSign, FaBox, FaListAlt, FaSearch, FaDownload } from "react-icons/fa";
 import api from "../utils/api";
+import { exportToExcel } from "../utils/excelExport";
 
 const Cashback = () => {
   const { themeColors } = useTheme();
@@ -67,6 +68,29 @@ const Cashback = () => {
       toast.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportCashbackExcel = () => {
+    if (activeTab === "ledger") {
+      const columns = [
+        { label: "User Name", key: (t) => t.userId?.name || "N/A" },
+        { label: "Phone", key: (t) => t.userId?.phone || "N/A" },
+        { label: "User Role", key: (t) => t.userId?.role || "N/A" },
+        { label: "Cashback Amount (₹)", key: "amount" },
+        { label: "Description / Product", key: "description" },
+        { label: "Transaction Type", key: "type" },
+        { label: "Timestamp", key: (t) => new Date(t.createdAt).toLocaleString("en-IN") },
+      ];
+      exportToExcel(transactions, columns, "Cashback_Transactions_Report");
+    } else {
+      const columns = [
+        { label: "Product Name", key: (s) => s.name || s.product?.name || "N/A" },
+        { label: "Product SKU", key: (s) => s.sku || s.product?.sku || "N/A" },
+        { label: "Total Scans", key: "totalScans" },
+        { label: "Total Cashback Credited (₹)", key: (s) => s.totalCashbackPaid !== undefined ? s.totalCashbackPaid : s.totalCashback },
+      ];
+      exportToExcel(summary, columns, "Cashback_Product_Summary_Report");
     }
   };
 

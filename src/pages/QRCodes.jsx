@@ -3,8 +3,9 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaQrcode, FaBoxOpen, FaLayerGroup, FaBolt, FaCheckCircle, FaSpinner, FaTimes, FaPlus, FaEye, FaDownload, FaPrint } from "react-icons/fa";
+import { FaQrcode, FaBoxOpen, FaLayerGroup, FaBolt, FaCheckCircle, FaSpinner, FaTimes, FaPlus, FaEye, FaDownload, FaPrint, FaClock, FaCheckDouble, FaRupeeSign } from "react-icons/fa";
 import api from "../utils/api";
+import { exportToExcel } from "../utils/excelExport";
 
 const QRCodes = () => {
   const { themeColors } = useTheme();
@@ -133,35 +134,38 @@ const QRCodes = () => {
     }
   };
 
+  // QR Statistics Summary
+  const qrStats = useMemo(() => {
+    const total = qrcodes.length;
+    const used = qrcodes.filter(qr => qr.status === 'scanned').length;
+    const unused = total - used;
+    const totalCashback = qrcodes.reduce((sum, qr) => sum + (qr.cashbackAmountCredited || 0), 0);
+    return { total, used, unused, totalCashback };
+  }, [qrcodes]);
+
   const downloadCSVForGroup = (groupQRs, groupName) => {
     if (!groupQRs || groupQRs.length === 0) {
       toast.error("No QR codes to download.");
       return;
     }
 
-    const headers = ["QR Code Data", "Product Name", "Product SKU", "Status", "Scanned By", "Date Generated"];
-    const rows = groupQRs.map(qr => [
-      qr.code,
-      qr.productId ? `"${qr.productId.name}"` : "N/A",
-      qr.productId ? qr.productId.sku : "N/A",
-      qr.status,
-      qr.scannedBy ? `"${qr.scannedBy.name}"` : "-",
-      new Date(qr.createdAt).toLocaleDateString()
-    ]);
+    const columns = [
+      { label: "QR Code Data", key: "code" },
+      { label: "Product Name", key: (qr) => qr.productId?.name || "N/A" },
+      { label: "Product SKU", key: (qr) => qr.productId?.sku || "N/A" },
+      { label: "QR Type", key: (qr) => (qr.qrType === 'retailer' ? 'Retailer' : 'Electrician') },
+      { label: "Status", key: (qr) => (qr.status === 'scanned' ? 'Used (Scanned)' : 'Unused (Generated)') },
+      { label: "Scanned By", key: (qr) => qr.scannedBy?.name || "-" },
+      { label: "Scanned Timestamp", key: (qr) => (qr.scannedAt ? new Date(qr.scannedAt).toLocaleString("en-IN") : "-") },
+      { label: "Cashback Amount Credited (₹)", key: (qr) => qr.cashbackAmountCredited || 0 },
+      { label: "Generated Date", key: (qr) => new Date(qr.createdAt).toLocaleString("en-IN") },
+    ];
 
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${groupName.replace(/\s+/g, '_')}_QRCodes_${new Date().getTime()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToExcel(groupQRs, columns, `QRCodes_${groupName}`);
   };
 
   const handleDownloadGlobalCSV = () => {
-    downloadCSVForGroup(qrcodes, "All");
+    downloadCSVForGroup(qrcodes, "Report_All");
   };
 
   const handlePrintSheet = (groupQRs, groupName, sku) => {
@@ -350,10 +354,10 @@ const QRCodes = () => {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <FaQrcode className="text-purple-600" />
-            QR Code Generator
+            QR Code Management & Used/Unused Reports
           </h1>
           <p className="text-sm mt-1" style={{ color: themeColors.textSecondary }}>
-            Bulk generate unique QR codes for your products to print on packaging.
+            Generate product QR codes, track used vs unused status, and export Excel reports.
           </p>
         </div>
         <button
@@ -363,6 +367,53 @@ const QRCodes = () => {
         >
           <FaPlus /> Generate Codes
         </button>
+      </div>
+
+      {/* QR Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div 
+          onClick={() => setFilterStatus("")}
+          className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === '' ? 'ring-2 ring-purple-500' : ''}`}
+          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Total QRs</span>
+            <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><FaQrcode /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-purple-700">{qrStats.total}</p>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus("scanned")}
+          className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'scanned' ? 'ring-2 ring-green-500' : ''}`}
+          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Used (Scanned)</span>
+            <div className="p-2 bg-green-100 text-green-600 rounded-lg"><FaCheckDouble /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-green-600">{qrStats.used}</p>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus("generated")}
+          className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'generated' ? 'ring-2 ring-blue-500' : ''}`}
+          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Unused (Generated)</span>
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><FaClock /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-blue-600">{qrStats.unused}</p>
+        </div>
+
+        <div className="p-4 rounded-xl border shadow-xs" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Total Cashback Paid</span>
+            <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><FaRupeeSign /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-amber-600">₹ {qrStats.totalCashback}</p>
+        </div>
       </div>
 
       <div className="rounded-xl shadow-sm border overflow-hidden" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>

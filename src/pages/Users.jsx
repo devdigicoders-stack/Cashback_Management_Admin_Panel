@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { FaUserTie, FaBolt, FaStore, FaEye, FaSearch, FaEdit, FaTrash, FaCheck, FaBan } from "react-icons/fa";
+import { FaUserTie, FaBolt, FaStore, FaEye, FaSearch, FaEdit, FaTrash, FaCheck, FaBan, FaDownload, FaUserCheck, FaUserTimes, FaUsers, FaIdCard } from "react-icons/fa";
 import api from "../utils/api";
 import Swal from "sweetalert2";
+import { exportToExcel } from "../utils/excelExport";
 
 const Users = () => {
   const { themeColors } = useTheme();
@@ -17,6 +18,7 @@ const Users = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all"); // 'all', 'active', 'inactive'
   const [searchQuery, setSearchQuery] = useState("");
 
   // Pagination states
@@ -32,10 +34,10 @@ const Users = () => {
     fetchUsers();
   }, [filterRole]);
 
-  // Reset to first page when search or itemsPerPage changes
+  // Reset to first page when search, status, or itemsPerPage changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, itemsPerPage, filterRole]);
+  }, [searchQuery, itemsPerPage, filterRole, filterStatus]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -163,13 +165,44 @@ const Users = () => {
     }
   };
 
-  const filteredUsers = users.filter((user) =>
-    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.phone?.includes(searchQuery) ||
-    user.salesCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.salesPerson?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.salesPerson?.code?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Stats calculation
+  const stats = useMemo(() => {
+    const total = users.length;
+    const active = users.filter((u) => u.isActive).length;
+    const inactive = total - active;
+    const verified = users.filter((u) => u.kycStatus?.aadhar === "approved" && u.kycStatus?.pan === "approved").length;
+    return { total, active, inactive, verified };
+  }, [users]);
+
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.phone?.includes(searchQuery) ||
+      user.salesCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.salesPerson?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.salesPerson?.code?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus =
+      filterStatus === "all" ? true : filterStatus === "active" ? user.isActive : !user.isActive;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleExportUsersExcel = () => {
+    const columns = [
+      { label: "User Name", key: "name" },
+      { label: "Phone Number", key: "phone" },
+      { label: "Role", key: "role" },
+      { label: "Firm Name", key: (u) => u.firmName || "-" },
+      { label: "Sales Person Code", key: (u) => u.salesCode || u.salesPerson?.code || "-" },
+      { label: "Onboarded By", key: (u) => u.salesPerson?.name || "Direct Signup" },
+      { label: "Account Status", key: (u) => (u.isActive ? "Active" : "Inactive") },
+      { label: "Aadhaar KYC", key: (u) => u.kycStatus?.aadhar || "pending" },
+      { label: "PAN KYC", key: (u) => u.kycStatus?.pan || "pending" },
+      { label: "Registered Date", key: (u) => new Date(u.createdAt).toLocaleDateString("en-IN") },
+    ];
+    exportToExcel(filteredUsers, columns, `Users_Report_${filterStatus}`);
+  };
 
   // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -203,7 +236,6 @@ const Users = () => {
     const aadhar = status?.aadhar || "pending";
     const pan = status?.pan || "pending";
     
-    // Simplistic aggregated status logic
     let combined = "Pending";
     let colorClass = "bg-yellow-100 text-yellow-700";
 
@@ -226,17 +258,69 @@ const Users = () => {
   };
 
   return (
-    // Changed max-w-7xl mx-auto to w-full
     <div className="p-6 w-full space-y-6" style={{ fontFamily: currentFont.family, color: themeColors.text }}>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <FaUserTie className="text-blue-500" />
-            User Management
+            User Management & Reports
           </h1>
           <p className="text-sm mt-1" style={{ color: themeColors.textSecondary }}>
-            Manage Electricians and Retailers, and verify their KYC documents.
+            Manage Electricians and Retailers, track active/inactive users, and export reports.
           </p>
+        </div>
+        <button
+          onClick={handleExportUsersExcel}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-white font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm"
+        >
+          <FaDownload /> Export Excel
+        </button>
+      </div>
+
+      {/* Summary Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div 
+          onClick={() => setFilterStatus("all")}
+          className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'all' ? 'ring-2 ring-blue-500' : ''}`}
+          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Total Users</span>
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><FaUsers /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2">{stats.total}</p>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus("active")}
+          className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'active' ? 'ring-2 ring-green-500' : ''}`}
+          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Active Users</span>
+            <div className="p-2 bg-green-100 text-green-600 rounded-lg"><FaUserCheck /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-green-600">{stats.active}</p>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus("inactive")}
+          className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'inactive' ? 'ring-2 ring-red-500' : ''}`}
+          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Inactive Users</span>
+            <div className="p-2 bg-red-100 text-red-600 rounded-lg"><FaUserTimes /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-red-600">{stats.inactive}</p>
+        </div>
+
+        <div className="p-4 rounded-xl border shadow-xs" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">KYC Verified</span>
+            <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><FaIdCard /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-purple-600">{stats.verified}</p>
         </div>
       </div>
 
@@ -245,19 +329,33 @@ const Users = () => {
         {/* Toolbar */}
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center gap-4" style={{ borderColor: themeColors.border }}>
           
-          {/* Tabs */}
-          <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
-            {["all", "electrician", "retailer"].map((role) => (
-              <button
-                key={role}
-                onClick={() => setFilterRole(role)}
-                className={`px-4 py-2 text-sm font-medium rounded-md capitalize transition-all ${
-                  filterRole === role ? "bg-white shadow-sm text-blue-600" : "text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {role === "all" ? "All Users" : role}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Role Tabs */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+              {["all", "electrician", "retailer"].map((role) => (
+                <button
+                  key={role}
+                  onClick={() => setFilterRole(role)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${
+                    filterRole === role ? "bg-white shadow-sm text-blue-600" : "text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {role === "all" ? "All Roles" : role}
+                </button>
+              ))}
+            </div>
+
+            {/* Status Dropdown */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="p-2 text-xs font-semibold border rounded-lg focus:outline-none focus:ring-2 bg-gray-50 text-gray-700"
+              style={{ borderColor: themeColors.border }}
+            >
+              <option value="all">All Statuses (Active & Inactive)</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
           </div>
 
           {/* Search */}
@@ -267,7 +365,7 @@ const Users = () => {
             </div>
             <input
               type="text"
-              placeholder="Search by name or phone..."
+              placeholder="Search by name, phone or code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 p-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2"

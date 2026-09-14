@@ -24,9 +24,11 @@ import {
   FaEnvelope,
   FaMapMarkerAlt,
   FaExchangeAlt,
+  FaDownload,
 } from "react-icons/fa";
 import api from "../utils/api";
 import Swal from "sweetalert2";
+import { exportToExcel } from "../utils/excelExport";
 
 const SalesPersons = () => {
   const { themeColors } = useTheme();
@@ -38,13 +40,12 @@ const SalesPersons = () => {
   const [summary, setSummary] = useState({
     totalSalesPersons: 0,
     activeSalesPersons: 0,
-    totalOnboardedUsers: 0,
-    totalElectricians: 0,
-    totalRetailers: 0,
+    totalElectriciansOnboarded: 0,
+    totalRetailersOnboarded: 0,
+    totalCashbackGenerated: 0,
   });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
 
   // Add / Edit Modal States
   const [modalOpen, setModalOpen] = useState(false);
@@ -299,13 +300,21 @@ const SalesPersons = () => {
             Manage your on-ground sales team, generate unique referral codes, and view complete drill-down onboarding reports.
           </p>
         </div>
-        <button
-          onClick={handleOpenAddModal}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200"
-          style={{ backgroundColor: themeColors.primary }}
-        >
-          <FaPlus /> Add Sales Person
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleExportSalesPersonsExcel}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-md transition-all duration-200 text-sm"
+          >
+            <FaDownload /> Export Excel
+          </button>
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200"
+            style={{ backgroundColor: themeColors.primary }}
+          >
+            <FaPlus /> Add Sales Person
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
