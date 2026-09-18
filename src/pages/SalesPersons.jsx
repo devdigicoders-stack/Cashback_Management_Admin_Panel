@@ -46,6 +46,7 @@ const SalesPersons = () => {
   });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   // Add / Edit Modal States
   const [modalOpen, setModalOpen] = useState(false);
