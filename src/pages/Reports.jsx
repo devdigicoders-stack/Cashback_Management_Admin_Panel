@@ -9,6 +9,7 @@ import {
   FaFileAlt,
   FaMoneyBillWave,
   FaUsers,
+  FaQrcode,
   FaDownload,
   FaSearch,
   FaCheckCircle,
@@ -25,6 +26,7 @@ import {
   FaEye,
   FaReceipt,
   FaRedo,
+  FaBoxOpen,
 } from "react-icons/fa";
 import api from "../utils/api";
 import { exportToExcel } from "../utils/excelExport";
@@ -35,7 +37,7 @@ const Reports = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
 
-  // Active Main Tab: 'payouts' or 'users'
+  // Active Main Tab: 'payouts' | 'users' | 'qrcodes'
   const [activeTab, setActiveTab] = useState("payouts");
 
   // ==========================================
@@ -103,6 +105,31 @@ const Reports = () => {
   const [userPage, setUserPage] = useState(1);
   const [userItemsPerPage, setUserItemsPerPage] = useState(15);
 
+  // ==========================================
+  // TAB 3: QR CODES REPORT STATES
+  // ==========================================
+  const [qrcodes, setQrcodes] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrSummary, setQrSummary] = useState({
+    totalCount: 0,
+    scannedCount: 0,
+    generatedCount: 0,
+    totalCashbackDisbursed: 0,
+  });
+
+  const [qrStatusFilter, setQrStatusFilter] = useState("all");
+  const [qrProductFilter, setQrProductFilter] = useState("all");
+  const [qrTypeFilter, setQrTypeFilter] = useState("all");
+  const [qrStartDate, setQrStartDate] = useState("");
+  const [qrEndDate, setQrEndDate] = useState("");
+  const [qrSearch, setQrSearch] = useState("");
+  const [qrDatePreset, setQrDatePreset] = useState("all");
+
+  // Pagination for QR Codes
+  const [qrPage, setQrPage] = useState(1);
+  const [qrItemsPerPage, setQrItemsPerPage] = useState(15);
+
   // Fetch Payouts on filter changes
   useEffect(() => {
     if (activeTab === "payouts") {
@@ -116,6 +143,14 @@ const Reports = () => {
       fetchUsers();
     }
   }, [activeTab]);
+
+  // Fetch QR codes & products when switching to qrcodes tab
+  useEffect(() => {
+    if (activeTab === "qrcodes") {
+      if (productsList.length === 0) fetchProducts();
+      fetchQRCodes();
+    }
+  }, [activeTab, qrStatusFilter, qrProductFilter, qrTypeFilter, qrStartDate, qrEndDate]);
 
   // Handle Preset Date Range for Payouts
   const handlePayoutPresetChange = (preset) => {
@@ -174,6 +209,34 @@ const Reports = () => {
     }
   };
 
+  // Handle Preset Date Range for QR Codes
+  const handleQRPresetChange = (preset) => {
+    setQrDatePreset(preset);
+    const now = new Date();
+    if (preset === "all") {
+      setQrStartDate("");
+      setQrEndDate("");
+    } else if (preset === "today") {
+      const todayStr = now.toISOString().slice(0, 10);
+      setQrStartDate(todayStr);
+      setQrEndDate(todayStr);
+    } else if (preset === "yesterday") {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      setQrStartDate(y.toISOString().slice(0, 10));
+      setQrEndDate(y.toISOString().slice(0, 10));
+    } else if (preset === "last7") {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      setQrStartDate(d.toISOString().slice(0, 10));
+      setQrEndDate(now.toISOString().slice(0, 10));
+    } else if (preset === "thisMonth") {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      setQrStartDate(firstDay.toISOString().slice(0, 10));
+      setQrEndDate(now.toISOString().slice(0, 10));
+    }
+  };
+
   // ==========================================
   // API FETCH FUNCTIONS
   // ==========================================
@@ -215,6 +278,44 @@ const Reports = () => {
       toast.error(err.response?.data?.message || err.message || "Error fetching users");
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get(`/api/admin/products`);
+      if (response.data.success) {
+        setProductsList(response.data.products || []);
+      }
+    } catch (err) {
+      console.error("Failed to load products for filter", err);
+    }
+  };
+
+  const fetchQRCodes = async () => {
+    setQrLoading(true);
+    try {
+      let queryParams = [];
+      if (qrStatusFilter !== "all") queryParams.push(`status=${qrStatusFilter}`);
+      if (qrProductFilter !== "all") queryParams.push(`productId=${qrProductFilter}`);
+      if (qrTypeFilter !== "all") queryParams.push(`qrType=${qrTypeFilter}`);
+      if (qrStartDate) queryParams.push(`startDate=${qrStartDate}`);
+      if (qrEndDate) queryParams.push(`endDate=${qrEndDate}`);
+
+      const url = `/api/admin/qrcodes${queryParams.length > 0 ? `?${queryParams.join("&")}` : ""}`;
+      const response = await api.get(url);
+      const data = response.data;
+      if (!data.success) {
+        throw new Error(data.message || "Failed to fetch QR codes");
+      }
+      setQrcodes(data.qrcodes || []);
+      if (data.summary) {
+        setQrSummary(data.summary);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Error fetching QR reports");
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -317,7 +418,37 @@ const Reports = () => {
   const totalUserPages = Math.ceil(filteredUsers.length / userItemsPerPage) || 1;
 
   // ==========================================
-  // SELECTION HANDLERS
+  // QR CODES FILTERING & CLIENT SEARCH
+  // ==========================================
+  const filteredQRCodes = useMemo(() => {
+    return qrcodes.filter((qr) => {
+      if (!qrSearch.trim()) return true;
+      const q = qrSearch.toLowerCase();
+      const code = qr.code?.toLowerCase() || "";
+      const prodName = qr.productId?.name?.toLowerCase() || "";
+      const prodSku = qr.productId?.sku?.toLowerCase() || "";
+      const scannedName = qr.scannedBy?.name?.toLowerCase() || "";
+      const scannedPhone = qr.scannedBy?.phone || "";
+
+      return (
+        code.includes(q) ||
+        prodName.includes(q) ||
+        prodSku.includes(q) ||
+        scannedName.includes(q) ||
+        scannedPhone.includes(q)
+      );
+    });
+  }, [qrcodes, qrSearch]);
+
+  const paginatedQRCodes = useMemo(() => {
+    const start = (qrPage - 1) * qrItemsPerPage;
+    return filteredQRCodes.slice(start, start + qrItemsPerPage);
+  }, [filteredQRCodes, qrPage, qrItemsPerPage]);
+
+  const totalQRPages = Math.ceil(filteredQRCodes.length / qrItemsPerPage) || 1;
+
+  // ==========================================
+  // SELECTION HANDLERS FOR PAYOUTS
   // ==========================================
   const handleSelectAllPayouts = (e) => {
     if (e.target.checked) {
@@ -337,12 +468,10 @@ const Reports = () => {
   // RTGS DOWNLOAD & AUTO-PROCESSING WORKFLOW
   // ==========================================
   const handleDownloadRTGS = async () => {
-    // Determine which items to export
     let itemsToProcess = [];
     if (selectedIds.length > 0) {
       itemsToProcess = filteredWithdrawals.filter((w) => selectedIds.includes(w._id));
     } else {
-      // If none selected, default to all pending in current filter
       itemsToProcess = filteredWithdrawals.filter((w) => w.status === "pending");
     }
 
@@ -375,7 +504,6 @@ const Reports = () => {
     if (!result.isConfirmed) return;
 
     try {
-      // 1. If there are pending items, call bulk-processing API
       if (pendingOnly.length > 0) {
         const pendingIds = pendingOnly.map((w) => w._id);
         const res = await api.post(`/api/admin/withdrawals/bulk-processing`, {
@@ -387,7 +515,6 @@ const Reports = () => {
         toast.success(`${pendingOnly.length} payouts marked as In-Processing!`);
       }
 
-      // 2. Build RTGS Excel / CSV Format with Banking Columns
       const rtgsColumns = [
         { label: "Sr No", key: (w, idx) => idx + 1 },
         {
@@ -415,11 +542,9 @@ const Reports = () => {
         { label: "Request Date", key: (w) => new Date(w.createdAt).toLocaleDateString("en-IN") },
       ];
 
-      // Export file
       const dateTag = new Date().toISOString().slice(0, 10);
       exportToExcel(itemsToProcess, rtgsColumns, `Bank_RTGS_NEFT_Payout_${dateTag}`);
 
-      // Refresh list & reset selection
       setSelectedIds([]);
       fetchPayouts();
     } catch (err) {
@@ -503,6 +628,32 @@ const Reports = () => {
     ];
 
     exportToExcel(filteredUsers, columns, `Users_Master_Report_${userRoleFilter}`);
+  };
+
+  // ==========================================
+  // EXPORT QR CODES EXCEL
+  // ==========================================
+  const handleExportQRExcel = () => {
+    if (filteredQRCodes.length === 0) {
+      toast.error("No QR code records available to export");
+      return;
+    }
+
+    const columns = [
+      { label: "QR Code Token", key: "code" },
+      { label: "Product Name", key: (qr) => qr.productId?.name || "N/A" },
+      { label: "SKU", key: (qr) => qr.productId?.sku || "-" },
+      { label: "Category", key: (qr) => qr.productId?.category || "-" },
+      { label: "QR Type", key: "qrType" },
+      { label: "Status", key: (qr) => (qr.status === "scanned" ? "Scanned (Used)" : "Generated (Available)") },
+      { label: "Cashback Amount Credited (₹)", key: (qr) => qr.cashbackAmountCredited || qr.productId?.cashbackAmount || 0 },
+      { label: "Scanned By User", key: (qr) => qr.scannedBy?.name || "-" },
+      { label: "Scanned By Phone", key: (qr) => qr.scannedBy?.phone || "-" },
+      { label: "Generated Date", key: (qr) => new Date(qr.createdAt).toLocaleDateString("en-IN") },
+      { label: "Scanned Date", key: (qr) => (qr.scannedAt ? new Date(qr.scannedAt).toLocaleString("en-IN") : "-") },
+    ];
+
+    exportToExcel(filteredQRCodes, columns, `QR_Codes_Report_${qrStatusFilter}`);
   };
 
   // ==========================================
@@ -627,10 +778,10 @@ const Reports = () => {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <FaFileAlt className="text-blue-600" />
-            Comprehensive Reports & Payout Center
+            Comprehensive Reports & Analytics Center
           </h1>
           <p className="text-sm mt-1" style={{ color: themeColors.textSecondary }}>
-            Download RTGS bank payout files, track in-process payments, record transaction UTR numbers, and export full user analytics.
+            Download RTGS bank payout files, track in-process payments, generate QR usage analytics, and export full user records.
           </p>
         </div>
 
@@ -638,23 +789,33 @@ const Reports = () => {
         <div className="flex space-x-2 bg-gray-100 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab("payouts")}
-            className={`flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all cursor-pointer ${
               activeTab === "payouts"
                 ? "bg-white shadow-sm text-blue-600"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
-            <FaMoneyBillWave /> Payout Requests & RTGS
+            <FaMoneyBillWave /> Payouts & RTGS
           </button>
           <button
             onClick={() => setActiveTab("users")}
-            className={`flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all cursor-pointer ${
               activeTab === "users"
                 ? "bg-white shadow-sm text-blue-600"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
             <FaUsers /> User Master Report
+          </button>
+          <button
+            onClick={() => setActiveTab("qrcodes")}
+            className={`flex items-center gap-2 px-4 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all cursor-pointer ${
+              activeTab === "qrcodes"
+                ? "bg-white shadow-sm text-blue-600"
+                : "text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <FaQrcode /> QR Codes Report
           </button>
         </div>
       </div>
@@ -666,7 +827,6 @@ const Reports = () => {
         <div className="space-y-6">
           {/* KPI Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Total Requests */}
             <div
               className="p-4 rounded-2xl border shadow-xs"
               style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
@@ -676,7 +836,6 @@ const Reports = () => {
               <p className="text-xs text-gray-500 mt-0.5">{payoutSummary.totalCount} requests total</p>
             </div>
 
-            {/* Pending Requests */}
             <div
               onClick={() => setPayoutStatus("pending")}
               className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
@@ -689,7 +848,6 @@ const Reports = () => {
               <p className="text-xs text-amber-700 mt-0.5">{payoutSummary.pendingCount} pending requests</p>
             </div>
 
-            {/* In Bank Processing */}
             <div
               onClick={() => setPayoutStatus("processing")}
               className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
@@ -702,7 +860,6 @@ const Reports = () => {
               <p className="text-xs text-blue-700 mt-0.5">{payoutSummary.processingCount} in bank process</p>
             </div>
 
-            {/* Approved / Completed */}
             <div
               onClick={() => setPayoutStatus("approved")}
               className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
@@ -715,7 +872,6 @@ const Reports = () => {
               <p className="text-xs text-emerald-700 mt-0.5">{payoutSummary.approvedCount} successfully paid</p>
             </div>
 
-            {/* Rejected */}
             <div
               onClick={() => setPayoutStatus("rejected")}
               className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
@@ -734,7 +890,6 @@ const Reports = () => {
             className="p-5 rounded-2xl border shadow-xs space-y-4"
             style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
           >
-            {/* Top Row: Main Actions */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b pb-4" style={{ borderColor: themeColors.border }}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase text-gray-500">Status:</span>
@@ -762,9 +917,7 @@ const Reports = () => {
                 ))}
               </div>
 
-              {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
-                {/* Download RTGS File */}
                 <button
                   onClick={handleDownloadRTGS}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-all cursor-pointer"
@@ -773,7 +926,6 @@ const Reports = () => {
                   <FaUniversity /> Download for RTGS / Bank ({selectedIds.length > 0 ? selectedIds.length : "All Pending"})
                 </button>
 
-                {/* Export All Payouts Excel */}
                 <button
                   onClick={handleExportAllPayoutsExcel}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-md transition-all cursor-pointer"
@@ -784,9 +936,7 @@ const Reports = () => {
               </div>
             </div>
 
-            {/* Bottom Row: Date Range & Search */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-              {/* Date Presets */}
               <div className="md:col-span-4 flex items-center gap-2">
                 <FaCalendarAlt className="text-gray-400 text-sm" />
                 <select
@@ -804,7 +954,6 @@ const Reports = () => {
                 </select>
               </div>
 
-              {/* Custom Date Range */}
               <div className="md:col-span-4 flex items-center gap-2">
                 <input
                   type="date"
@@ -831,7 +980,6 @@ const Reports = () => {
                 />
               </div>
 
-              {/* Search Bar */}
               <div className="md:col-span-4 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                   <FaSearch className="text-xs" />
@@ -916,7 +1064,6 @@ const Reports = () => {
                           }`}
                           style={{ borderColor: themeColors.border }}
                         >
-                          {/* Checkbox */}
                           <td className="p-3.5 text-center">
                             <input
                               type="checkbox"
@@ -926,7 +1073,6 @@ const Reports = () => {
                             />
                           </td>
 
-                          {/* User Details */}
                           <td className="p-3.5">
                             <p className="font-bold text-gray-900">{w.userId?.name || "Unknown User"}</p>
                             <p className="text-gray-500 font-mono text-[11px]">{w.userId?.phone || "N/A"}</p>
@@ -948,7 +1094,6 @@ const Reports = () => {
                             </div>
                           </td>
 
-                          {/* Bank Details */}
                           <td className="p-3.5">
                             <div className="space-y-0.5">
                               <p className="font-semibold text-gray-800 flex items-center gap-1">
@@ -964,17 +1109,14 @@ const Reports = () => {
                             </div>
                           </td>
 
-                          {/* Amount */}
                           <td className="p-3.5 text-right font-bold text-sm text-emerald-600 font-mono">
                             ₹{w.amount?.toLocaleString("en-IN")}
                           </td>
 
-                          {/* Status */}
                           <td className="p-3.5 text-center">
                             {getPayoutStatusBadge(w.status)}
                           </td>
 
-                          {/* Transaction / UTR No */}
                           <td className="p-3.5">
                             {w.transactionNumber ? (
                               <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -990,7 +1132,6 @@ const Reports = () => {
                             )}
                           </td>
 
-                          {/* Dates */}
                           <td className="p-3.5 text-gray-500 text-[11px]">
                             <p>Req: {new Date(w.createdAt).toLocaleDateString("en-IN")}</p>
                             {w.processedAt && (
@@ -1000,10 +1141,8 @@ const Reports = () => {
                             )}
                           </td>
 
-                          {/* Actions */}
                           <td className="p-3.5 text-center">
                             <div className="flex items-center justify-center gap-1.5">
-                              {/* Complete Payment Button (Available for pending & processing) */}
                               {(w.status === "pending" || w.status === "processing") && (
                                 <button
                                   onClick={() => handleOpenCompletePaymentModal(w)}
@@ -1014,7 +1153,6 @@ const Reports = () => {
                                 </button>
                               )}
 
-                              {/* Reject Button */}
                               {(w.status === "pending" || w.status === "processing") && (
                                 <button
                                   onClick={() => handleOpenRejectModal(w)}
@@ -1025,7 +1163,6 @@ const Reports = () => {
                                 </button>
                               )}
 
-                              {/* Completed Badge Info */}
                               {w.status === "approved" && (
                                 <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
                                   <FaCheckCircle /> Paid
@@ -1047,7 +1184,6 @@ const Reports = () => {
               </table>
             </div>
 
-            {/* Table Footer / Pagination */}
             <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50" style={{ borderColor: themeColors.border }}>
               <div className="text-xs text-gray-500">
                 Showing <span className="font-semibold">{paginatedWithdrawals.length}</span> of <span className="font-semibold">{filteredWithdrawals.length}</span> filtered payout requests ({selectedIds.length} selected)
@@ -1083,7 +1219,6 @@ const Reports = () => {
       {/* ========================================================================= */}
       {activeTab === "users" && (
         <div className="space-y-6">
-          {/* User Report Filters & Toolbar */}
           <div
             className="p-5 rounded-2xl border shadow-xs space-y-4"
             style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
@@ -1098,7 +1233,6 @@ const Reports = () => {
                 </p>
               </div>
 
-              {/* Export Users Button */}
               <button
                 onClick={handleExportUsersExcel}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-md transition-all cursor-pointer"
@@ -1107,9 +1241,7 @@ const Reports = () => {
               </button>
             </div>
 
-            {/* Filter Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {/* Role Filter */}
               <div>
                 <label className="text-[11px] font-semibold text-gray-500 block mb-1">User Role</label>
                 <select
@@ -1127,7 +1259,6 @@ const Reports = () => {
                 </select>
               </div>
 
-              {/* Account Status Filter */}
               <div>
                 <label className="text-[11px] font-semibold text-gray-500 block mb-1">Account Status</label>
                 <select
@@ -1145,7 +1276,6 @@ const Reports = () => {
                 </select>
               </div>
 
-              {/* KYC Status Filter */}
               <div>
                 <label className="text-[11px] font-semibold text-gray-500 block mb-1">KYC Status</label>
                 <select
@@ -1164,7 +1294,6 @@ const Reports = () => {
                 </select>
               </div>
 
-              {/* Date Presets */}
               <div>
                 <label className="text-[11px] font-semibold text-gray-500 block mb-1">Reg Date Preset</label>
                 <select
@@ -1180,7 +1309,6 @@ const Reports = () => {
                 </select>
               </div>
 
-              {/* Search */}
               <div>
                 <label className="text-[11px] font-semibold text-gray-500 block mb-1">Search User</label>
                 <div className="relative">
@@ -1255,7 +1383,6 @@ const Reports = () => {
                         className="hover:bg-gray-50 border-b last:border-0 transition-colors"
                         style={{ borderColor: themeColors.border }}
                       >
-                        {/* User Details */}
                         <td className="p-3.5">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
@@ -1268,7 +1395,6 @@ const Reports = () => {
                           </div>
                         </td>
 
-                        {/* Contact & Firm */}
                         <td className="p-3.5">
                           <p className="font-mono font-medium text-gray-800">{u.phone}</p>
                           {u.firmName && (
@@ -1276,7 +1402,6 @@ const Reports = () => {
                           )}
                         </td>
 
-                        {/* Role & Status */}
                         <td className="p-3.5">
                           <div className="flex flex-col gap-1">
                             {u.role === "electrician" ? (
@@ -1298,7 +1423,6 @@ const Reports = () => {
                           </div>
                         </td>
 
-                        {/* Bank Details */}
                         <td className="p-3.5 text-[11px]">
                           {u.bankDetails?.accountNumber ? (
                             <div>
@@ -1311,7 +1435,6 @@ const Reports = () => {
                           )}
                         </td>
 
-                        {/* KYC Status */}
                         <td className="p-3.5">
                           <div className="space-y-1 text-[10px]">
                             <div className="flex items-center gap-1">
@@ -1345,7 +1468,6 @@ const Reports = () => {
                           </div>
                         </td>
 
-                        {/* Onboarded By */}
                         <td className="p-3.5 text-[11px]">
                           {u.salesPerson ? (
                             <div>
@@ -1359,12 +1481,10 @@ const Reports = () => {
                           )}
                         </td>
 
-                        {/* Registered Date */}
                         <td className="p-3.5 text-gray-500 text-[11px]">
                           {new Date(u.createdAt).toLocaleDateString("en-IN")}
                         </td>
 
-                        {/* Action */}
                         <td className="p-3.5 text-center">
                           <button
                             onClick={() => navigate(`/users/${u._id}`)}
@@ -1380,7 +1500,6 @@ const Reports = () => {
               </table>
             </div>
 
-            {/* Users Table Footer */}
             <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50" style={{ borderColor: themeColors.border }}>
               <div className="text-xs text-gray-500">
                 Showing <span className="font-semibold">{paginatedUsers.length}</span> of <span className="font-semibold">{filteredUsers.length}</span> filtered users
@@ -1400,6 +1519,358 @@ const Reports = () => {
                 <button
                   disabled={userPage >= totalUserPages}
                   onClick={() => setUserPage((p) => p + 1)}
+                  className="px-3 py-1.5 rounded-lg border text-xs font-semibold disabled:opacity-40 bg-white"
+                  style={{ borderColor: themeColors.border }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: QR CODES & SCANS REPORT                                            */}
+      {/* ========================================================================= */}
+      {activeTab === "qrcodes" && (
+        <div className="space-y-6">
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              className="p-4 rounded-2xl border shadow-xs"
+              style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+            >
+              <p className="text-xs font-semibold uppercase text-gray-500">Total QR Codes</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">{qrSummary.totalCount.toLocaleString("en-IN")}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Total Generated in System</p>
+            </div>
+
+            <div
+              onClick={() => setQrStatusFilter("scanned")}
+              className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
+                qrStatusFilter === "scanned" ? "ring-2 ring-emerald-500 bg-emerald-50/40" : ""
+              }`}
+              style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+            >
+              <p className="text-xs font-semibold uppercase text-emerald-600">Scanned & Used</p>
+              <p className="text-xl font-bold text-emerald-600 mt-1">{qrSummary.scannedCount.toLocaleString("en-IN")}</p>
+              <p className="text-xs text-emerald-700 mt-0.5">Claimed by Users</p>
+            </div>
+
+            <div
+              onClick={() => setQrStatusFilter("generated")}
+              className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
+                qrStatusFilter === "generated" ? "ring-2 ring-blue-500 bg-blue-50/40" : ""
+              }`}
+              style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+            >
+              <p className="text-xs font-semibold uppercase text-blue-600">Available / Unscanned</p>
+              <p className="text-xl font-bold text-blue-600 mt-1">{qrSummary.generatedCount.toLocaleString("en-IN")}</p>
+              <p className="text-xs text-blue-700 mt-0.5">Ready to be scanned</p>
+            </div>
+
+            <div
+              className="p-4 rounded-2xl border shadow-xs"
+              style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+            >
+              <p className="text-xs font-semibold uppercase text-purple-600">Total Cashback Disbursed</p>
+              <p className="text-xl font-bold text-purple-600 mt-1">₹{qrSummary.totalCashbackDisbursed.toLocaleString("en-IN")}</p>
+              <p className="text-xs text-purple-700 mt-0.5">Paid via QR Scans</p>
+            </div>
+          </div>
+
+          {/* Action Toolbar & Filters */}
+          <div
+            className="p-5 rounded-2xl border shadow-xs space-y-4"
+            style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+          >
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b pb-4" style={{ borderColor: themeColors.border }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase text-gray-500">Status:</span>
+                {[
+                  { id: "all", label: "All QRs" },
+                  { id: "scanned", label: "Scanned / Used" },
+                  { id: "generated", label: "Available / Unscanned" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setQrStatusFilter(tab.id);
+                      setQrPage(1);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      qrStatusFilter === tab.id
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Export QR Report Button */}
+              <button
+                onClick={handleExportQRExcel}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-md transition-all cursor-pointer"
+              >
+                <FaDownload /> Export QR Codes Excel Report ({filteredQRCodes.length})
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* Product Filter */}
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Product</label>
+                <select
+                  value={qrProductFilter}
+                  onChange={(e) => {
+                    setQrProductFilter(e.target.value);
+                    setQrPage(1);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border text-xs font-semibold focus:outline-none bg-white"
+                  style={{ borderColor: themeColors.border }}
+                >
+                  <option value="all">All Products</option>
+                  {productsList.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name} ({p.sku})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* QR Type Filter */}
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Target Role</label>
+                <select
+                  value={qrTypeFilter}
+                  onChange={(e) => {
+                    setQrTypeFilter(e.target.value);
+                    setQrPage(1);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border text-xs font-semibold focus:outline-none bg-white"
+                  style={{ borderColor: themeColors.border }}
+                >
+                  <option value="all">All Target Roles</option>
+                  <option value="electrician">Electrician</option>
+                  <option value="retailer">Retailer</option>
+                </select>
+              </div>
+
+              {/* Date Presets */}
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Date Preset</label>
+                <select
+                  value={qrDatePreset}
+                  onChange={(e) => handleQRPresetChange(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border text-xs font-semibold focus:outline-none bg-white"
+                  style={{ borderColor: themeColors.border }}
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="last7">Last 7 Days</option>
+                  <option value="thisMonth">This Month</option>
+                </select>
+              </div>
+
+              {/* Custom Date Range */}
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Custom Date Range</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={qrStartDate}
+                    onChange={(e) => {
+                      setQrStartDate(e.target.value);
+                      setQrDatePreset("custom");
+                    }}
+                    className="w-full px-2 py-1.5 rounded-lg border text-xs bg-white"
+                    style={{ borderColor: themeColors.border }}
+                    title="Start Date"
+                  />
+                  <span className="text-gray-400 text-xs">-</span>
+                  <input
+                    type="date"
+                    value={qrEndDate}
+                    onChange={(e) => {
+                      setQrEndDate(e.target.value);
+                      setQrDatePreset("custom");
+                    }}
+                    className="w-full px-2 py-1.5 rounded-lg border text-xs bg-white"
+                    style={{ borderColor: themeColors.border }}
+                    title="End Date"
+                  />
+                </div>
+              </div>
+
+              {/* Search */}
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Search QR / Scanner</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <FaSearch className="text-xs" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="QR token, Product, Scanner..."
+                    value={qrSearch}
+                    onChange={(e) => setQrSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs focus:outline-none bg-white"
+                    style={{ borderColor: themeColors.border }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* QR Codes Table */}
+          <div
+            className="rounded-2xl border shadow-xs overflow-hidden"
+            style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr style={{ backgroundColor: themeColors.background, color: themeColors.textSecondary }}>
+                    <th className="p-3.5 border-b font-semibold uppercase tracking-wider" style={{ borderColor: themeColors.border }}>
+                      QR Unique Token
+                    </th>
+                    <th className="p-3.5 border-b font-semibold uppercase tracking-wider" style={{ borderColor: themeColors.border }}>
+                      Product Info
+                    </th>
+                    <th className="p-3.5 border-b font-semibold uppercase tracking-wider text-center" style={{ borderColor: themeColors.border }}>
+                      Target Role
+                    </th>
+                    <th className="p-3.5 border-b font-semibold uppercase tracking-wider text-right" style={{ borderColor: themeColors.border }}>
+                      Cashback Value
+                    </th>
+                    <th className="p-3.5 border-b font-semibold uppercase tracking-wider text-center" style={{ borderColor: themeColors.border }}>
+                      Status
+                    </th>
+                    <th className="p-3.5 border-b font-semibold uppercase tracking-wider" style={{ borderColor: themeColors.border }}>
+                      Scanned By User
+                    </th>
+                    <th className="p-3.5 border-b font-semibold uppercase tracking-wider" style={{ borderColor: themeColors.border }}>
+                      Dates
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {qrLoading ? (
+                    <tr>
+                      <td colSpan="7" className="p-12 text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2" style={{ borderColor: themeColors.primary }}></div>
+                      </td>
+                    </tr>
+                  ) : paginatedQRCodes.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="p-12 text-center text-gray-500">
+                        No QR codes found matching your criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedQRCodes.map((qr) => (
+                      <tr
+                        key={qr._id}
+                        className="hover:bg-gray-50 border-b last:border-0 transition-colors"
+                        style={{ borderColor: themeColors.border }}
+                      >
+                        {/* Token */}
+                        <td className="p-3.5">
+                          <span className="font-mono font-bold px-2 py-1 rounded bg-gray-100 text-gray-800 border border-gray-200 text-xs">
+                            {qr.code}
+                          </span>
+                        </td>
+
+                        {/* Product */}
+                        <td className="p-3.5">
+                          <p className="font-bold text-gray-900">{qr.productId?.name || "Product Deleted"}</p>
+                          <p className="text-[11px] text-gray-500 font-mono">SKU: {qr.productId?.sku || "-"}</p>
+                        </td>
+
+                        {/* QR Type */}
+                        <td className="p-3.5 text-center">
+                          {qr.qrType === "electrician" ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              ⚡ Electrician
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                              🏪 Retailer
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Cashback Value */}
+                        <td className="p-3.5 text-right font-bold text-emerald-600 font-mono text-sm">
+                          ₹{qr.cashbackAmountCredited || qr.productId?.cashbackAmount || 0}
+                        </td>
+
+                        {/* Status */}
+                        <td className="p-3.5 text-center">
+                          {qr.status === "scanned" ? (
+                            <span className="px-2.5 py-1 text-xs rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                              <FaCheckCircle className="text-xs" /> Scanned (Used)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 text-xs rounded-full font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
+                              <FaClock className="text-xs" /> Available (Unused)
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Scanned By */}
+                        <td className="p-3.5 text-[11px]">
+                          {qr.scannedBy ? (
+                            <div>
+                              <p className="font-bold text-gray-900">{qr.scannedBy.name}</p>
+                              <p className="text-gray-500 font-mono text-[10px]">{qr.scannedBy.phone}</p>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic">-</span>
+                          )}
+                        </td>
+
+                        {/* Dates */}
+                        <td className="p-3.5 text-gray-500 text-[11px]">
+                          <p>Gen: {new Date(qr.createdAt).toLocaleDateString("en-IN")}</p>
+                          {qr.scannedAt && (
+                            <p className="text-emerald-700 font-medium text-[10px]">
+                              Scan: {new Date(qr.scannedAt).toLocaleDateString("en-IN")}
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* QR Table Footer */}
+            <div className="p-4 border-t flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50" style={{ borderColor: themeColors.border }}>
+              <div className="text-xs text-gray-500">
+                Showing <span className="font-semibold">{paginatedQRCodes.length}</span> of <span className="font-semibold">{filteredQRCodes.length}</span> filtered QR codes
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={qrPage === 1}
+                  onClick={() => setQrPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-lg border text-xs font-semibold disabled:opacity-40 bg-white"
+                  style={{ borderColor: themeColors.border }}
+                >
+                  Previous
+                </button>
+                <span className="text-xs text-gray-600 font-semibold">
+                  Page {qrPage} of {totalQRPages}
+                </span>
+                <button
+                  disabled={qrPage >= totalQRPages}
+                  onClick={() => setQrPage((p) => p + 1)}
                   className="px-3 py-1.5 rounded-lg border text-xs font-semibold disabled:opacity-40 bg-white"
                   style={{ borderColor: themeColors.border }}
                 >
@@ -1432,7 +1903,6 @@ const Reports = () => {
               </button>
             </div>
 
-            {/* Payout Summary Info */}
             <div className="p-3.5 bg-gray-50 rounded-xl border mb-4 text-xs space-y-1.5" style={{ borderColor: themeColors.border }}>
               <div className="flex justify-between">
                 <span className="text-gray-500">Beneficiary:</span>
@@ -1455,7 +1925,6 @@ const Reports = () => {
             </div>
 
             <form onSubmit={handleCompletePaymentSubmit} className="space-y-4">
-              {/* UTR / Transaction Reference Number */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
                   Bank UTR / Transaction Reference Number <span className="text-red-500">*</span>
@@ -1477,7 +1946,6 @@ const Reports = () => {
                 </p>
               </div>
 
-              {/* Admin Remarks */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
                   Admin Remarks (Optional)
@@ -1494,7 +1962,6 @@ const Reports = () => {
                 />
               </div>
 
-              {/* Buttons */}
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
