@@ -18,7 +18,7 @@ const Withdrawals = () => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [processingId, setProcessingId] = useState(null);
-  const [processData, setProcessData] = useState({ action: "approve", adminRemarks: "" });
+  const [processData, setProcessData] = useState({ action: "approve", transactionNumber: "", adminRemarks: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pagination states
@@ -62,20 +62,21 @@ const Withdrawals = () => {
       { label: "Phone Number", key: (w) => w.userId?.phone || "N/A" },
       { label: "Role", key: (w) => w.userId?.role || "N/A" },
       { label: "Requested Amount (₹)", key: "amount" },
-      { label: "Account Holder", key: (w) => w.bankDetails?.accountHolderName || "-" },
-      { label: "Account Number", key: (w) => w.bankDetails?.accountNumber || "-" },
-      { label: "IFSC Code", key: (w) => w.bankDetails?.ifscCode || "-" },
-      { label: "Bank Name", key: (w) => w.bankDetails?.bankName || "-" },
+      { label: "Account Holder", key: (w) => w.bankSnapshot?.accountHolderName || w.userId?.bankDetails?.accountHolderName || "-" },
+      { label: "Account Number", key: (w) => w.bankSnapshot?.accountNumber || w.userId?.bankDetails?.accountNumber || "-" },
+      { label: "IFSC Code", key: (w) => w.bankSnapshot?.ifscCode || w.userId?.bankDetails?.ifscCode || "-" },
+      { label: "Bank Name", key: (w) => w.bankSnapshot?.bankName || w.userId?.bankDetails?.bankName || "-" },
       { label: "Status", key: "status" },
+      { label: "Transaction / UTR Number", key: (w) => w.transactionNumber || "-" },
       { label: "Admin Remarks", key: (w) => w.adminRemarks || "-" },
       { label: "Requested Date", key: (w) => new Date(w.createdAt).toLocaleString("en-IN") },
     ];
     exportToExcel(withdrawals, columns, `Payouts_Withdrawals_${filterStatus}`);
   };
 
-  const handleProcessClick = (id) => {
-    setProcessingId(id);
-    setProcessData({ action: "approve", adminRemarks: "" });
+  const handleProcessClick = (withdrawal) => {
+    setProcessingId(withdrawal._id);
+    setProcessData({ action: "approve", transactionNumber: withdrawal.transactionNumber || "", adminRemarks: "" });
     setModalOpen(true);
   };
 
@@ -91,7 +92,7 @@ const Withdrawals = () => {
         throw new Error(data.message || "Failed to process withdrawal");
       }
 
-      toast.success(`Withdrawal ${processData.action}d successfully`);
+      toast.success(`Withdrawal ${processData.action === 'approve' ? 'approved' : 'rejected'} successfully`);
       setModalOpen(false);
       fetchWithdrawals(); // Refresh list
     } catch (err) {
@@ -104,7 +105,9 @@ const Withdrawals = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case "approved":
-        return <span className="px-3 py-1 text-xs rounded-full font-medium bg-green-100 text-green-700 flex items-center gap-1 w-fit"><FaCheckCircle /> Approved</span>;
+        return <span className="px-3 py-1 text-xs rounded-full font-medium bg-green-100 text-green-700 flex items-center gap-1 w-fit"><FaCheckCircle /> Approved / Paid</span>;
+      case "processing":
+        return <span className="px-3 py-1 text-xs rounded-full font-medium bg-blue-100 text-blue-700 flex items-center gap-1 w-fit"><FaClock /> In-Processing</span>;
       case "rejected":
         return <span className="px-3 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700 flex items-center gap-1 w-fit"><FaTimesCircle /> Rejected</span>;
       case "pending":
@@ -146,7 +149,7 @@ const Withdrawals = () => {
           
           {/* Tabs */}
           <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg overflow-x-auto w-full sm:w-auto">
-            {["all", "pending", "approved", "rejected"].map((status) => (
+            {["all", "pending", "processing", "approved", "rejected"].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
@@ -154,7 +157,7 @@ const Withdrawals = () => {
                   filterStatus === status ? "bg-white shadow-sm text-green-600" : "text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {status}
+                {status === "processing" ? "In-Processing" : status}
               </button>
             ))}
           </div>
@@ -166,7 +169,9 @@ const Withdrawals = () => {
             <thead>
               <tr style={{ backgroundColor: themeColors.background, color: themeColors.textSecondary }}>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>User</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Bank Details</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Amount</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>UTR / Txn No.</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Date</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Status</th>
                 <th className="p-4 font-medium text-sm border-b text-center" style={{ borderColor: themeColors.border }}>Action</th>
@@ -175,49 +180,66 @@ const Withdrawals = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center">
+                  <td colSpan="7" className="p-8 text-center">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2" style={{ borderColor: themeColors.primary }}></div>
                   </td>
                 </tr>
               ) : currentWithdrawals.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-500">
+                  <td colSpan="7" className="p-8 text-center text-gray-500">
                     No withdrawal requests found.
                   </td>
                 </tr>
               ) : (
-                currentWithdrawals.map((withdrawal) => (
-                  <tr key={withdrawal._id} className="hover:bg-gray-50 transition-colors border-b last:border-0" style={{ borderColor: themeColors.border }}>
-                    <td className="p-4">
-                      <p className="font-semibold">{withdrawal.userId?.name || "Unknown User"}</p>
-                      <p className="text-xs text-gray-500">{withdrawal.userId?.phone || ""}</p>
-                      {withdrawal.userId?.role && (
-                         <span className="text-[10px] uppercase bg-gray-200 text-gray-700 px-1 py-0.5 rounded">{withdrawal.userId.role}</span>
-                      )}
-                    </td>
-                    <td className="p-4 font-bold text-green-600">
-                      ₹{withdrawal.amount}
-                    </td>
-                    <td className="p-4 text-sm text-gray-600">
-                      {new Date(withdrawal.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="p-4">
-                      {getStatusBadge(withdrawal.status)}
-                    </td>
-                    <td className="p-4 text-center">
-                      {withdrawal.status === "pending" ? (
-                        <button
-                          onClick={() => handleProcessClick(withdrawal._id)}
-                          className="px-4 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
-                        >
-                          Process
-                        </button>
-                      ) : (
-                         <span className="text-xs text-gray-400">Processed</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                currentWithdrawals.map((withdrawal) => {
+                  const bank = withdrawal.bankSnapshot || withdrawal.userId?.bankDetails || {};
+                  return (
+                    <tr key={withdrawal._id} className="hover:bg-gray-50 transition-colors border-b last:border-0" style={{ borderColor: themeColors.border }}>
+                      <td className="p-4">
+                        <p className="font-semibold">{withdrawal.userId?.name || "Unknown User"}</p>
+                        <p className="text-xs text-gray-500">{withdrawal.userId?.phone || ""}</p>
+                        {withdrawal.userId?.role && (
+                           <span className="text-[10px] uppercase bg-gray-200 text-gray-700 px-1 py-0.5 rounded">{withdrawal.userId.role}</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-xs">
+                        <p className="font-medium text-gray-800">{bank.bankName || "N/A"}</p>
+                        <p className="text-gray-600 font-mono">A/C: {bank.accountNumber || "N/A"}</p>
+                        <p className="text-gray-400">IFSC: {bank.ifscCode || "N/A"}</p>
+                      </td>
+                      <td className="p-4 font-bold text-green-600">
+                        ₹{withdrawal.amount}
+                      </td>
+                      <td className="p-4 text-xs font-mono">
+                        {withdrawal.transactionNumber ? (
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 font-bold">
+                            {withdrawal.transactionNumber}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {new Date(withdrawal.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="p-4">
+                        {getStatusBadge(withdrawal.status)}
+                      </td>
+                      <td className="p-4 text-center">
+                        {withdrawal.status === "pending" || withdrawal.status === "processing" ? (
+                          <button
+                            onClick={() => handleProcessClick(withdrawal)}
+                            className="px-4 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm cursor-pointer"
+                          >
+                            Process / Pay
+                          </button>
+                        ) : (
+                           <span className="text-xs text-gray-400 font-medium">Processed</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -240,7 +262,7 @@ const Withdrawals = () => {
                   </option>
                 ))}
               </select>
-              <span>entries</span>
+              <span>per page</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -253,7 +275,7 @@ const Withdrawals = () => {
                 Previous
               </button>
               
-              <span className="text-sm font-medium px-2">
+              <span className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>
                 Page {currentPage} of {totalPages}
               </span>
 
@@ -276,7 +298,7 @@ const Withdrawals = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md overflow-hidden">
             <div className="p-5 border-b bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-800">Process Withdrawal</h3>
+              <h3 className="text-lg font-bold text-gray-800">Process / Complete Withdrawal</h3>
               <p className="text-xs text-gray-500 mt-1">Review and update the status of this request.</p>
             </div>
             
@@ -293,7 +315,7 @@ const Withdrawals = () => {
                       onChange={(e) => setProcessData({...processData, action: e.target.value})}
                       className="text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-sm font-medium text-green-700">Approve</span>
+                    <span className="text-sm font-medium text-green-700">Approve & Pay</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
@@ -309,6 +331,21 @@ const Withdrawals = () => {
                 </div>
               </div>
 
+              {processData.action === "approve" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bank UTR / Transaction Reference Number
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border rounded-lg p-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g. UTR1234567890 / TXN89238472"
+                    value={processData.transactionNumber}
+                    onChange={(e) => setProcessData({ ...processData, transactionNumber: e.target.value })}
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Admin Remarks (Optional)
@@ -316,7 +353,7 @@ const Withdrawals = () => {
                 <textarea
                   className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows="3"
-                  placeholder={processData.action === "approve" ? "e.g., Transaction ID: TXN12345" : "e.g., Invalid bank details"}
+                  placeholder={processData.action === "approve" ? "e.g., Successfully transferred to bank account" : "e.g., Invalid bank details"}
                   value={processData.adminRemarks}
                   onChange={(e) => setProcessData({ ...processData, adminRemarks: e.target.value })}
                 ></textarea>
@@ -336,7 +373,7 @@ const Withdrawals = () => {
                   className={`flex-1 py-2.5 text-white rounded-lg font-medium transition disabled:opacity-50 shadow-sm ${processData.action === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Processing..." : `Confirm ${processData.action === 'approve' ? 'Approval' : 'Rejection'}`}
+                  {isSubmitting ? "Processing..." : `Confirm ${processData.action === 'approve' ? 'Approval & Payment' : 'Rejection'}`}
                 </button>
               </div>
             </form>
