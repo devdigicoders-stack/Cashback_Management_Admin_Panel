@@ -261,6 +261,23 @@ const SalesPersons = () => {
     );
   });
 
+  const handleExportSalesPersonsExcel = () => {
+    const columns = [
+      { label: "Sales Code", key: "code" },
+      { label: "Sales Person Name", key: "name" },
+      { label: "Phone", key: "phone" },
+      { label: "Email", key: (sp) => sp.email || "-" },
+      { label: "City", key: (sp) => sp.city || "-" },
+      { label: "Area", key: (sp) => sp.area || "-" },
+      { label: "Total Accounts Created", key: (sp) => sp.totalUsers || 0 },
+      { label: "Electricians Onboarded", key: (sp) => sp.electriciansCount || 0 },
+      { label: "Retailers Onboarded", key: (sp) => sp.retailersCount || 0 },
+      { label: "Status", key: (sp) => (sp.isActive ? "Active" : "Inactive") },
+      { label: "Created Date", key: (sp) => new Date(sp.createdAt).toLocaleDateString("en-IN") },
+    ];
+    exportToExcel(filteredSalesPersons, columns, `Sales_Persons_Report_${filterStatus}`);
+  };
+
   const getKycBadge = (kycStatus) => {
     const aadhar = kycStatus?.aadhar || "pending";
     const pan = kycStatus?.pan || "pending";
