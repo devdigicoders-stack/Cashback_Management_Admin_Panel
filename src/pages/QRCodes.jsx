@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaQrcode, FaBoxOpen, FaLayerGroup, FaBolt, FaCheckCircle, FaSpinner, FaTimes, FaPlus, FaEye, FaDownload, FaPrint, FaClock, FaCheckDouble, FaRupeeSign } from "react-icons/fa";
+import { 
+  FaQrcode, FaBoxOpen, FaLayerGroup, FaBolt, FaCheckCircle, FaSpinner, 
+  FaTimes, FaPlus, FaEye, FaDownload, FaPrint, FaClock, FaCheckDouble, 
+  FaRupeeSign, FaCopy, FaCheck 
+} from "react-icons/fa";
 import api from "../utils/api";
 import { exportToExcel } from "../utils/excelExport";
 
@@ -24,6 +28,11 @@ const QRCodes = () => {
   // Modal state for Details
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedProductGroup, setSelectedProductGroup] = useState(null);
+
+  // Modal state for Single QR Card Preview & Download
+  const [previewQR, setPreviewQR] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [isDownloadingImage, setIsDownloadingImage] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -168,6 +177,128 @@ const QRCodes = () => {
     downloadCSVForGroup(qrcodes, "Report_All");
   };
 
+  const generateQRCardDataUrl = (code, productName = "Product", sku = "", qrType = "Electrician") => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 760;
+      const ctx = canvas.getContext("2d");
+
+      // Background
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Card outer border
+      ctx.strokeStyle = "#CBD5E1";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(16, 16, canvas.width - 32, canvas.height - 32);
+
+      // Top banner
+      const isRetailer = qrType.toLowerCase() === "retailer";
+      ctx.fillStyle = isRetailer ? "#EA580C" : "#7C3AED";
+      ctx.fillRect(16, 16, canvas.width - 32, 65);
+
+      // Header Text
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(`${qrType.toUpperCase()} CASHBACK QR`, canvas.width / 2, 56);
+
+      // Product details
+      ctx.fillStyle = "#0F172A";
+      ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(productName, canvas.width / 2, 122);
+
+      if (sku) {
+        ctx.fillStyle = "#64748B";
+        ctx.font = "16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText(`SKU: ${sku}`, canvas.width / 2, 150);
+      }
+
+      // Load QR Image
+      const qrImg = new Image();
+      qrImg.crossOrigin = "Anonymous";
+      qrImg.onload = () => {
+        // Draw QR Image
+        const qrSize = 330;
+        const qrX = (canvas.width - qrSize) / 2;
+        const qrY = 175;
+        ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+        // Code Box Container
+        const boxY = 530;
+        const boxHeight = 135;
+        const boxWidth = canvas.width - 80;
+        const boxX = 40;
+
+        ctx.fillStyle = "#F8FAFC";
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+        ctx.strokeStyle = "#94A3B8";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+        // Code Label
+        ctx.fillStyle = "#475569";
+        ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText("CODE TO TYPE IN APP (IF CAMERA FAILS):", canvas.width / 2, boxY + 32);
+
+        // Bold Mono Code
+        ctx.fillStyle = "#0F172A";
+        ctx.font = "bold 28px 'Courier New', Courier, monospace";
+        ctx.fillText(code, canvas.width / 2, boxY + 76);
+
+        // App Instructions
+        ctx.fillStyle = "#64748B";
+        ctx.font = "italic 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText("Scan with Cashback App or type code manually", canvas.width / 2, boxY + 110);
+
+        // Footer Note
+        ctx.fillStyle = "#94A3B8";
+        ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText("Official Cashback Loyalty System", canvas.width / 2, canvas.height - 30);
+
+        resolve(canvas.toDataURL("image/png"));
+      };
+
+      qrImg.onerror = () => {
+        resolve(null);
+      };
+
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(code)}`;
+    });
+  };
+
+  const handleDownloadSingleQRCard = async (qr, productName, sku) => {
+    setIsDownloadingImage(true);
+    try {
+      const type = qr.qrType === 'retailer' ? 'Retailer' : 'Electrician';
+      const dataUrl = await generateQRCardDataUrl(qr.code, productName, sku, type);
+      if (!dataUrl) {
+        toast.error("Failed to generate QR card image.");
+        return;
+      }
+      const link = document.createElement('a');
+      link.download = `QR_${qr.code}.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Downloaded QR image with code: ${qr.code}`);
+    } catch (err) {
+      toast.error("Error downloading QR image.");
+    } finally {
+      setIsDownloadingImage(false);
+    }
+  };
+
+  const handleCopyCode = (code) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    toast.success(`Copied code: ${code}`);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
   const handlePrintSheet = (groupQRs, groupName, sku) => {
     if (!groupQRs || groupQRs.length === 0) {
       toast.error("No QR codes available to print.");
@@ -195,48 +326,96 @@ const QRCodes = () => {
         <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
         <style>
           body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
             padding: 20px;
+            background: #fff;
           }
           .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
           }
+          .header h2 { margin: 0 0 6px 0; color: #0f172a; }
+          .header p { margin: 0; color: #64748b; font-size: 14px; }
           .qr-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 20px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
             justify-items: center;
           }
           .qr-item {
             text-align: center;
-            border: 1px dashed #ccc;
-            padding: 10px;
-            border-radius: 8px;
+            border: 2px solid #cbd5e1;
+            padding: 12px;
+            border-radius: 10px;
             page-break-inside: avoid;
+            background: #ffffff;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .qr-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            background: #f1f5f9;
+            color: #475569;
+          }
+          .qr-product {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
           }
           .qr-image {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 5px auto;
+            width: 130px;
+            height: 130px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
-          .qr-text {
-            font-size: 11px;
-            color: #333;
+          .qr-code-box {
+            margin-top: 8px;
+            background: #f8fafc;
+            border: 1.5px solid #94a3b8;
+            border-radius: 6px;
+            padding: 4px 8px;
+            width: 92%;
+            box-sizing: border-box;
+          }
+          .qr-code-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+          }
+          .qr-code-text {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: 0.8px;
             word-break: break-all;
-            margin-top: 5px;
-            line-height: 1.4;
+            margin-top: 2px;
           }
           @media print {
-            body { padding: 0; }
-            .header { margin-bottom: 20px; }
-            .qr-grid {
-              gap: 10px;
-            }
-            .qr-item {
-              border: 1px solid #ddd;
-            }
+            body { padding: 10px; }
+            .header { margin-bottom: 15px; }
+            .qr-grid { gap: 10px; grid-template-columns: repeat(4, 1fr); }
+            .qr-item { border: 1.5px solid #64748b; }
           }
         </style>
       </head>
@@ -253,25 +432,36 @@ const QRCodes = () => {
           const grid = document.getElementById('qr-grid');
           
           // Render each QR code using client-side library
-          qrCodesData.forEach(data => {
+          qrCodesData.forEach((data, index) => {
             const item = document.createElement('div');
             item.className = 'qr-item';
             
+            const badge = document.createElement('div');
+            badge.className = 'qr-badge';
+            badge.innerText = data.qrType + ' Cashback';
+            item.appendChild(badge);
+
+            const prod = document.createElement('div');
+            prod.className = 'qr-product';
+            prod.innerText = data.productName;
+            item.appendChild(prod);
+
             const qrDiv = document.createElement('div');
             qrDiv.className = 'qr-image';
-            
-            const textDiv = document.createElement('div');
-            textDiv.className = 'qr-text';
-            textDiv.innerHTML = data.code;
-            
+            qrDiv.id = 'qr-canvas-' + index;
             item.appendChild(qrDiv);
-            item.appendChild(textDiv);
+            
+            const codeBox = document.createElement('div');
+            codeBox.className = 'qr-code-box';
+            codeBox.innerHTML = '<div class="qr-code-label">Code (Type in app):</div><div class="qr-code-text">' + data.code + '</div>';
+            item.appendChild(codeBox);
+
             grid.appendChild(item);
             
             new QRCode(qrDiv, {
               text: data.code,
-              width: 120,
-              height: 120,
+              width: 130,
+              height: 130,
               colorDark : "#000000",
               colorLight : "#ffffff",
               correctLevel : QRCode.CorrectLevel.M
@@ -677,16 +867,23 @@ const QRCodes = () => {
                           {new Date(qr.createdAt).toLocaleString('en-IN')}
                         </td>
                         <td className="p-4 text-center">
-                          <a 
-                            href={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr.code)}`} 
-                            download={`QR_${qr.code}.png`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-purple-100 hover:text-purple-700 transition shadow-sm text-xs font-medium"
-                            title="View & Download QR Image"
-                          >
-                            <FaQrcode /> View Image
-                          </a>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button 
+                              onClick={() => setPreviewQR({ ...qr, productName: selectedProductGroup.product?.name || 'Product', sku: selectedProductGroup.product?.sku || '' })}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded transition shadow-xs text-xs font-semibold"
+                              title="View QR Card with Code"
+                            >
+                              <FaEye /> View Card
+                            </button>
+                            <button 
+                              onClick={() => handleDownloadSingleQRCard(qr, selectedProductGroup.product?.name, selectedProductGroup.product?.sku)}
+                              disabled={isDownloadingImage}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded transition shadow-xs text-xs font-medium"
+                              title="Download PNG Picture (with Code)"
+                            >
+                              <FaDownload />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -740,6 +937,96 @@ const QRCodes = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Single QR Card Preview & Download Modal */}
+      {previewQR && (
+        <div className="fixed inset-0 flex items-center justify-center z-60 p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+              <div className="flex items-center gap-2">
+                <FaQrcode className="text-purple-600 text-lg" />
+                <h3 className="font-bold text-gray-800">QR Code Picture & Details</h3>
+              </div>
+              <button 
+                onClick={() => setPreviewQR(null)} 
+                className="text-gray-400 hover:text-gray-600 transition p-1 text-lg rounded-full hover:bg-gray-200"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Modal Content - Printable QR Card Preview */}
+            <div className="p-6 flex flex-col items-center">
+              <div className="w-full border-2 border-dashed border-gray-300 rounded-2xl p-5 bg-white shadow-sm flex flex-col items-center text-center">
+                
+                {/* Badge */}
+                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide mb-2 ${previewQR.qrType === 'retailer' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'}`}>
+                  {previewQR.qrType === 'retailer' ? 'Retailer' : 'Electrician'} Cashback QR
+                </span>
+
+                {/* Product Name & SKU */}
+                <h4 className="font-bold text-gray-900 text-lg leading-snug">{previewQR.productName}</h4>
+                {previewQR.sku && <p className="text-xs text-gray-500 font-medium">SKU: {previewQR.sku}</p>}
+
+                {/* QR Image */}
+                <div className="my-4 p-2 bg-white rounded-xl border border-gray-100 shadow-inner flex items-center justify-center">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(previewQR.code)}`}
+                    alt={previewQR.code}
+                    className="w-52 h-52 object-contain"
+                  />
+                </div>
+
+                {/* Prominent Code Box */}
+                <div className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl p-3 flex flex-col items-center">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Code to Type in App:
+                  </span>
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <span className="font-mono font-black text-xl text-slate-900 tracking-wider select-all">
+                      {previewQR.code}
+                    </span>
+                    <button
+                      onClick={() => handleCopyCode(previewQR.code)}
+                      className="p-1.5 bg-white hover:bg-slate-200 text-slate-700 rounded-md transition border shadow-xs text-xs"
+                      title="Copy Code"
+                    >
+                      {copiedCode ? <FaCheck className="text-green-600" /> : <FaCopy />}
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-slate-500 mt-1 italic">
+                    (Use this code in the app if camera scan fails)
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="p-4 bg-gray-50 border-t flex items-center justify-between gap-3">
+              <button
+                onClick={() => {
+                  handlePrintSheet([previewQR], previewQR.productName, previewQR.sku);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 rounded-xl text-sm font-bold transition shadow-xs"
+              >
+                <FaPrint /> Print Card
+              </button>
+
+              <button
+                onClick={() => handleDownloadSingleQRCard(previewQR, previewQR.productName, previewQR.sku)}
+                disabled={isDownloadingImage}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold transition shadow-sm disabled:opacity-50"
+              >
+                {isDownloadingImage ? <FaSpinner className="animate-spin" /> : <FaDownload />}
+                Download Picture (PNG)
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -836,3 +1123,4 @@ const QRCodes = () => {
 };
 
 export default QRCodes;
+
