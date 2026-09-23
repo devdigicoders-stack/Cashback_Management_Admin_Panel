@@ -177,7 +177,7 @@ const QRCodes = () => {
     downloadCSVForGroup(qrcodes, "Report_All");
   };
 
-  const generateQRCardDataUrl = (code, productName = "Product", sku = "", qrType = "Electrician") => {
+  const generateQRCardDataUrl = (code, productName = "Product", sku = "", qrType = "Electrician", shortCode = "") => {
     return new Promise((resolve) => {
       const canvas = document.createElement("canvas");
       canvas.width = 600;
@@ -241,17 +241,18 @@ const QRCodes = () => {
         // Code Label
         ctx.fillStyle = "#475569";
         ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-        ctx.fillText("CODE TO TYPE IN APP (IF CAMERA FAILS):", canvas.width / 2, boxY + 32);
+        ctx.fillText("SHORT CODE TO TYPE IN APP (IF CAMERA FAILS):", canvas.width / 2, boxY + 32);
 
-        // Bold Mono Code
+        // Bold Mono Short Code
+        const displayCode = shortCode || (code ? code.split('-').pop().slice(0, 8).toUpperCase() : code);
         ctx.fillStyle = "#0F172A";
-        ctx.font = "bold 28px 'Courier New', Courier, monospace";
-        ctx.fillText(code, canvas.width / 2, boxY + 76);
+        ctx.font = "bold 32px 'Courier New', Courier, monospace";
+        ctx.fillText(displayCode, canvas.width / 2, boxY + 76);
 
         // App Instructions
         ctx.fillStyle = "#64748B";
         ctx.font = "italic 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-        ctx.fillText("Scan with Cashback App or type code manually", canvas.width / 2, boxY + 110);
+        ctx.fillText("Scan with Cashback App or enter short code manually", canvas.width / 2, boxY + 110);
 
         // Footer Note
         ctx.fillStyle = "#94A3B8";
@@ -273,7 +274,7 @@ const QRCodes = () => {
     setIsDownloadingImage(true);
     try {
       const type = qr.qrType === 'retailer' ? 'Retailer' : 'Electrician';
-      const dataUrl = await generateQRCardDataUrl(qr.code, productName, sku, type);
+      const dataUrl = await generateQRCardDataUrl(qr.code, productName, sku, type, qr.shortCode);
       if (!dataUrl) {
         toast.error("Failed to generate QR card image.");
         return;
@@ -314,6 +315,7 @@ const QRCodes = () => {
     // Pass data to the print window to render client-side
     const qrDataList = groupQRs.map(qr => ({
       code: qr.code,
+      shortCode: qr.shortCode || (qr.code ? qr.code.split('-').pop().slice(0, 8).toUpperCase() : ''),
       qrType: qr.qrType === 'retailer' ? 'Retailer' : 'Electrician',
       productName: groupName
     }));
@@ -453,7 +455,7 @@ const QRCodes = () => {
             
             const codeBox = document.createElement('div');
             codeBox.className = 'qr-code-box';
-            codeBox.innerHTML = '<div class="qr-code-label">Code (Type in app):</div><div class="qr-code-text">' + data.code + '</div>';
+            codeBox.innerHTML = '<div class="qr-code-label">Short Code (Type in app):</div><div class="qr-code-text">' + (data.shortCode || data.code) + '</div>';
             item.appendChild(codeBox);
 
             grid.appendChild(item);
@@ -833,9 +835,14 @@ const QRCodes = () => {
                     currentModalQRCodes.map((qr) => (
                       <tr key={qr._id} className="hover:bg-gray-50 transition border-b last:border-0" style={{ borderColor: themeColors.border }}>
                         <td className="p-4">
-                          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded border text-gray-700 select-all">
-                            {qr.code}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded border text-gray-700 select-all">
+                              {qr.code}
+                            </span>
+                            <span className="text-xs font-mono font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                              Short Code: {qr.shortCode || (qr.code ? qr.code.split('-').pop().slice(0, 8).toUpperCase() : '-')}
+                            </span>
+                          </div>
                         </td>
                         <td className="p-4">
                           <span className={`inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full ${qr.qrType === 'retailer' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'}`}>

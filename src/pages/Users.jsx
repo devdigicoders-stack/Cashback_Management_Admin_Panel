@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { FaUserTie, FaBolt, FaStore, FaEye, FaSearch, FaEdit, FaTrash, FaCheck, FaBan, FaDownload, FaUserCheck, FaUserTimes, FaUsers, FaIdCard } from "react-icons/fa";
 import api from "../utils/api";
@@ -15,11 +15,23 @@ const Users = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
 
+  const location = useLocation();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all"); // 'all', 'active', 'inactive'
+  const [filterStatus, setFilterStatus] = useState(() => {
+    const s = new URLSearchParams(window.location.search);
+    return s.get("filter") || s.get("status") || "all";
+  });
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    const s = new URLSearchParams(location.search);
+    const filter = s.get("filter") || s.get("status");
+    if (filter) {
+      setFilterStatus(filter);
+    }
+  }, [location]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -171,7 +183,8 @@ const Users = () => {
     const active = users.filter((u) => u.isActive).length;
     const inactive = total - active;
     const verified = users.filter((u) => u.kycStatus?.aadhar === "approved" && u.kycStatus?.pan === "approved").length;
-    return { total, active, inactive, verified };
+    const pendingKyc = users.filter((u) => (u.kycStatus?.aadhar && u.kycStatus?.aadhar !== "approved") || (u.kycStatus?.pan && u.kycStatus?.pan !== "approved")).length;
+    return { total, active, inactive, verified, pendingKyc };
   }, [users]);
 
   const filteredUsers = users.filter((user) => {
@@ -182,8 +195,16 @@ const Users = () => {
       user.salesPerson?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.salesPerson?.code?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const isPendingKyc = (u) => (u.kycStatus?.aadhar && u.kycStatus?.aadhar !== "approved") || (u.kycStatus?.pan && u.kycStatus?.pan !== "approved");
+
     const matchesStatus =
-      filterStatus === "all" ? true : filterStatus === "active" ? user.isActive : !user.isActive;
+      filterStatus === "all"
+        ? true
+        : filterStatus === "active"
+        ? user.isActive
+        : filterStatus === "pending"
+        ? isPendingKyc(user)
+        : !user.isActive;
 
     return matchesSearch && matchesStatus;
   });
@@ -278,7 +299,7 @@ const Users = () => {
       </div>
 
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div 
           onClick={() => setFilterStatus("all")}
           className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'all' ? 'ring-2 ring-blue-500' : ''}`}
@@ -321,6 +342,18 @@ const Users = () => {
             <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><FaIdCard /></div>
           </div>
           <p className="text-2xl font-bold mt-2 text-purple-600">{stats.verified}</p>
+        </div>
+
+        <div 
+          onClick={() => setFilterStatus("pending")}
+          className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'pending' ? 'ring-2 ring-amber-500' : ''}`}
+          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Pending KYC</span>
+            <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><FaIdCard /></div>
+          </div>
+          <p className="text-2xl font-bold mt-2 text-amber-600">{stats.pendingKyc}</p>
         </div>
       </div>
 

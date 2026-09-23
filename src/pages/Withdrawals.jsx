@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
@@ -16,10 +17,22 @@ const Withdrawals = () => {
   const { currentFont } = useFont();
   const { token } = useAuth();
 
+  const location = useLocation();
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState(() => {
+    const s = new URLSearchParams(window.location.search);
+    return s.get("filter") || s.get("status") || "all";
+  });
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const s = new URLSearchParams(location.search);
+    const filter = s.get("filter") || s.get("status");
+    if (filter) {
+      setFilterStatus(filter);
+    }
+  }, [location]);
 
   // Single Process Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -359,7 +372,7 @@ const Withdrawals = () => {
         return <span className="px-3 py-1 text-xs rounded-full font-bold bg-red-100 text-red-700 flex items-center gap-1 w-fit"><FaTimesCircle /> Rejected</span>;
       case "pending":
       default:
-        return <span className="px-3 py-1 text-xs rounded-full font-bold bg-amber-100 text-amber-700 flex items-center gap-1 w-fit"><FaClock /> Pending</span>;
+        return <span className="px-3 py-1 text-xs rounded-full font-bold bg-amber-100 text-amber-700 flex items-center gap-1 w-fit"><FaClock /> Pending Transfer</span>;
     }
   };
 
@@ -429,7 +442,7 @@ const Withdrawals = () => {
           style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase">Pending Approval</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase">Pending Transfer</span>
             <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><FaClock /></div>
           </div>
           <p className="text-2xl font-bold mt-2 text-amber-600">{stats.pending}</p>

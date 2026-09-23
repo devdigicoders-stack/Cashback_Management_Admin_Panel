@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useFont } from "../context/FontContext";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 import {
@@ -36,9 +36,28 @@ const Reports = () => {
   const { currentFont } = useFont();
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Active Main Tab: 'payouts' | 'users' | 'qrcodes'
-  const [activeTab, setActiveTab] = useState("payouts");
+  const [activeTab, setActiveTab] = useState(() => {
+    const p = window.location.pathname.toLowerCase();
+    const s = new URLSearchParams(window.location.search).get("tab");
+    if (p.includes("/users") || s === "users") return "users";
+    if (p.includes("/qrcodes") || s === "qrcodes") return "qrcodes";
+    return "payouts";
+  });
+
+  useEffect(() => {
+    const p = location.pathname.toLowerCase();
+    const s = new URLSearchParams(location.search).get("tab");
+    if (p.includes("/users") || s === "users") {
+      setActiveTab("users");
+    } else if (p.includes("/qrcodes") || s === "qrcodes") {
+      setActiveTab("qrcodes");
+    } else if (p.includes("/payouts") || s === "payouts") {
+      setActiveTab("payouts");
+    }
+  }, [location]);
 
   // ==========================================
   // TAB 1: PAYOUTS & RTGS REPORT STATES
@@ -843,7 +862,7 @@ const Reports = () => {
               }`}
               style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
             >
-              <p className="text-xs font-semibold uppercase text-amber-600">Pending Approval</p>
+              <p className="text-xs font-semibold uppercase text-amber-600">Pending Transfer</p>
               <p className="text-xl font-bold text-amber-600 mt-1">₹{payoutSummary.pendingAmount.toLocaleString("en-IN")}</p>
               <p className="text-xs text-amber-700 mt-0.5">{payoutSummary.pendingCount} pending requests</p>
             </div>

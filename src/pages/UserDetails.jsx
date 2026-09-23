@@ -418,6 +418,26 @@ const UserDetails = () => {
                 <div className="flex flex-col mt-2"><span className="text-gray-500">Account Holder:</span> <span className="font-medium">{user.bankDetails.accountHolderName || 'N/A'}</span></div>
                 <div className="flex justify-between mt-2"><span className="text-gray-500">Account No:</span> <span className="font-medium">{user.bankDetails.accountNumber || 'N/A'}</span></div>
                 <div className="flex justify-between mt-2"><span className="text-gray-500">IFSC Code:</span> <span className="font-medium">{user.bankDetails.ifscCode || 'N/A'}</span></div>
+                {user.bankDetails.passbookChequeUrl && (
+                  <div className="mt-3 pt-3 border-t">
+                    <span className="text-gray-500 text-xs font-semibold block mb-1.5">Copy of Passbook / Cheque:</span>
+                    <a
+                      href={`${import.meta.env.VITE_API_BASE_URL}${user.bankDetails.passbookChequeUrl}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block group"
+                    >
+                      <img
+                        src={`${import.meta.env.VITE_API_BASE_URL}${user.bankDetails.passbookChequeUrl}`}
+                        alt="Passbook / Cheque Copy"
+                        className="w-full h-36 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition shadow-xs"
+                      />
+                      <span className="text-[11px] text-blue-600 font-semibold mt-1 inline-block group-hover:underline">
+                        View Full Document &rarr;
+                      </span>
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           )}

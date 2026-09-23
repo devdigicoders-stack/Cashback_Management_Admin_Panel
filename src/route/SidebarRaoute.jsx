@@ -18,7 +18,17 @@ const QRCodes = lazy(() => import("../pages/QRCodes"));
 
 const routes = [
   { path: "/dashboard", component: Dashboard, name: "Dashboard", icon: FaTachometerAlt },
-  { path: "/reports", component: Reports, name: "Reports & RTGS Payouts", icon: FaFileAlt },
+  {
+    path: "/reports",
+    component: Reports,
+    name: "Reports",
+    icon: FaFileAlt,
+    children: [
+      { path: "/reports/payouts", component: Reports, name: "Payouts & Transfers", icon: FaMoneyBillWave },
+      { path: "/reports/users", component: Reports, name: "Users & KYC", icon: FaUsers },
+      { path: "/reports/qrcodes", component: Reports, name: "QR Codes Audit", icon: FaQrcode },
+    ]
+  },
   { path: "/users", component: Users, name: "Users", icon: FaUsers },
   { path: "/users/:id", component: UserDetails, name: "User Details", hide: true },
   { path: "/sales-persons", component: SalesPersons, name: "Sales Persons", icon: FaUserTie },
