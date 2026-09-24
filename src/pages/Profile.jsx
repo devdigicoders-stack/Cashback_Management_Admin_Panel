@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFont } from '../context/FontContext';
-import { User, Mail, Phone, Edit2, Save, X, Shield, Camera } from 'lucide-react';
+import { User, Mail, Phone, Edit2, Save, X, Shield, Camera, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../utils/api';
 
 const Profile = () => {
-  const { admin, setLoginData } = useAuth();
+  const { admin, setLoginData, logout } = useAuth();
+  const navigate = useNavigate();
   const { themeColors } = useTheme();
   const { currentFont } = useFont();
+
+  const handleSignOut = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -171,31 +178,43 @@ const Profile = () => {
               </div>
             </div>
             
-            {!isEditing ? (
-              <button 
-                onClick={() => setIsEditing(true)}
-                className="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90 shadow-sm"
-                style={{ backgroundColor: themeColors.primary, color: themeColors.onPrimary }}
-              >
-                <Edit2 size={16} className="mr-2" />
-                Edit Profile
-              </button>
-            ) : (
-              <button 
-                type="button"
-                onClick={() => {
-                  setIsEditing(false);
-                  setFormData({ name: profileData.name, email: profileData.email }); // Reset
-                  setSelectedFile(null);
-                  setImagePreview(profileData.profileImage ? `${import.meta.env.VITE_API_BASE_URL}${profileData.profileImage}` : '');
-                }}
-                className="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-gray-100 border shadow-sm"
-                style={{ color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.background }}
-              >
-                <X size={16} className="mr-2" />
-                Cancel
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {!isEditing ? (
+                <>
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90 shadow-sm cursor-pointer"
+                    style={{ backgroundColor: themeColors.primary, color: themeColors.onPrimary }}
+                  >
+                    <Edit2 size={16} className="mr-2" />
+                    Edit Profile
+                  </button>
+                  <button 
+                    onClick={handleSignOut}
+                    className="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors border shadow-sm hover:bg-red-50 text-red-600 border-red-200 cursor-pointer"
+                    title="Sign out of Admin Panel"
+                  >
+                    <LogOut size={16} className="mr-2" />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setFormData({ name: profileData.name, email: profileData.email }); // Reset
+                    setSelectedFile(null);
+                    setImagePreview(profileData.profileImage ? `${import.meta.env.VITE_API_BASE_URL}${profileData.profileImage}` : '');
+                  }}
+                  className="flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-gray-100 border shadow-sm cursor-pointer"
+                  style={{ color: themeColors.text, borderColor: themeColors.border, backgroundColor: themeColors.background }}
+                >
+                  <X size={16} className="mr-2" />
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

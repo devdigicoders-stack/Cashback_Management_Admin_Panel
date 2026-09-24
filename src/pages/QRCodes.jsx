@@ -988,25 +988,25 @@ const QRCodes = () => {
                   />
                 </div>
 
-                {/* Prominent Code Box */}
+                {/* Prominent Short Code Box */}
                 <div className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl p-3 flex flex-col items-center">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Code to Type in App:
+                    Short Code to Type in App:
                   </span>
                   <div className="flex items-center justify-center gap-2 mt-1">
-                    <span className="font-mono font-black text-xl text-slate-900 tracking-wider select-all">
-                      {previewQR.code}
+                    <span className="font-mono font-black text-2xl text-purple-700 tracking-widest select-all">
+                      {previewQR.shortCode || (previewQR.code ? previewQR.code.split('-').pop().slice(0, 8).toUpperCase() : previewQR.code)}
                     </span>
                     <button
-                      onClick={() => handleCopyCode(previewQR.code)}
+                      onClick={() => handleCopyCode(previewQR.shortCode || previewQR.code)}
                       className="p-1.5 bg-white hover:bg-slate-200 text-slate-700 rounded-md transition border shadow-xs text-xs"
-                      title="Copy Code"
+                      title="Copy Short Code"
                     >
                       {copiedCode ? <FaCheck className="text-green-600" /> : <FaCopy />}
                     </button>
                   </div>
                   <span className="text-[11px] text-slate-500 mt-1 italic">
-                    (Use this code in the app if camera scan fails)
+                    (Simple 6-character code to easily enter in mobile app)
                   </span>
                 </div>
 

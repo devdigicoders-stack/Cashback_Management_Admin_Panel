@@ -77,8 +77,8 @@ const Reports = () => {
     rejectedAmount: 0,
   });
 
-  // Payout Filters
-  const [payoutStatus, setPayoutStatus] = useState("all");
+  // Payout Filters - Default to 'pending'
+  const [payoutStatus, setPayoutStatus] = useState("pending");
   const [payoutStartDate, setPayoutStartDate] = useState("");
   const [payoutEndDate, setPayoutEndDate] = useState("");
   const [payoutSearch, setPayoutSearch] = useState("");
@@ -913,7 +913,6 @@ const Reports = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase text-gray-500">Status:</span>
                 {[
-                  { id: "all", label: "All Requests" },
                   { id: "pending", label: "Pending" },
                   { id: "processing", label: "In-Processing" },
                   { id: "approved", label: "Paid / Completed" },
