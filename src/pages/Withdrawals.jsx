@@ -22,7 +22,7 @@ const Withdrawals = () => {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState(() => {
     const s = new URLSearchParams(window.location.search);
-    return s.get("filter") || s.get("status") || "all";
+    return s.get("filter") || s.get("status") || "pending";
   });
   const [searchTerm, setSearchTerm] = useState("");
 

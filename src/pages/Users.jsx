@@ -21,7 +21,7 @@ const Users = () => {
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState(() => {
     const s = new URLSearchParams(window.location.search);
-    return s.get("filter") || s.get("status") || "all";
+    return s.get("filter") || s.get("status") || "pending";
   });
   const [searchQuery, setSearchQuery] = useState("");
 

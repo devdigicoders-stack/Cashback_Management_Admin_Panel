@@ -13,7 +13,7 @@ const ServiceRequests = () => {
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("pending");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [activeRequest, setActiveRequest] = useState(null);
