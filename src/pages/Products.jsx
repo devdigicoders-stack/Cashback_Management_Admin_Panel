@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
@@ -37,6 +37,10 @@ const Products = () => {
   // Bulk Import Modal State
   const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
   const [bulkImportText, setBulkImportText] = useState("");
+  const bulkFileInputRef = useRef(null);
+
+  // Category creation toggle
+  const [isNewCategory, setIsNewCategory] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,15 +50,24 @@ const Products = () => {
   const initialFormState = {
     name: "",
     sku: "",
+    hsnCode: "",
     barcode: "",
     size: "",
+    gstCategory: "18%",
     category: "",
+    newCategory: "",
     description: "",
     electricianAmount: 0,
     retailerAmount: 0,
     isActive: true,
   };
   const [formData, setFormData] = useState(initialFormState);
+
+  // Extract unique existing categories
+  const existingCategories = useMemo(() => {
+    const cats = new Set(products.map((p) => p.category).filter(Boolean));
+    return Array.from(cats).sort();
+  }, [products]);
 
   useEffect(() => {
     fetchProducts();
@@ -88,18 +101,23 @@ const Products = () => {
       setEditId(product._id);
       setFormData({
         name: product.name,
-        sku: product.sku,
+        sku: product.hsnCode || product.sku || "",
+        hsnCode: product.hsnCode || product.sku || "",
         barcode: product.barcode || "",
-        size: product.size || "",
-        category: product.category,
+        size: product.gstCategory || product.size || "18%",
+        gstCategory: product.gstCategory || product.size || "18%",
+        category: product.category || "",
+        newCategory: "",
         description: product.description || "",
         electricianAmount: product.cashbackConfig?.electricianAmount || 0,
         retailerAmount: product.cashbackConfig?.retailerAmount || 0,
         isActive: product.isActive,
       });
+      setIsNewCategory(false);
     } else {
       setEditId(null);
       setFormData(initialFormState);
+      setIsNewCategory(false);
     }
     setModalOpen(true);
   };
@@ -108,6 +126,7 @@ const Products = () => {
     setModalOpen(false);
     setEditId(null);
     setFormData(initialFormState);
+    setIsNewCategory(false);
   };
 
   const handleInputChange = (e) => {
@@ -122,6 +141,22 @@ const Products = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
+    const chosenCategory = isNewCategory ? formData.newCategory?.trim() : formData.category?.trim();
+    if (!chosenCategory) {
+      toast.error("Please select or enter a Category");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const finalHsn = (formData.hsnCode || formData.sku || "").trim();
+    if (!finalHsn) {
+      toast.error("Please provide HSN Code");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const finalGst = formData.gstCategory || formData.size || "18%";
+
     try {
       const url = editId
         ? `/api/admin/products/${editId}`
@@ -129,10 +164,12 @@ const Products = () => {
 
       const payload = {
         name: formData.name,
-        sku: formData.sku,
+        sku: finalHsn,
+        hsnCode: finalHsn,
         barcode: formData.barcode,
-        size: formData.size,
-        category: formData.category,
+        size: finalGst,
+        gstCategory: finalGst,
+        category: chosenCategory,
         description: formData.description,
         cashbackConfig: {
           electricianAmount: Number(formData.electricianAmount),
@@ -165,9 +202,11 @@ const Products = () => {
 
   const filteredProducts = products.filter(
     (p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.barcode && p.barcode.toLowerCase().includes(searchQuery.toLowerCase()))
+      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.hsnCode && p.hsnCode.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.barcode && p.barcode.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleToggleStatus = async (product) => {
@@ -266,7 +305,7 @@ const Products = () => {
   const handleBulkImportSubmit = async (e) => {
     e.preventDefault();
     if (!bulkImportText.trim()) {
-      toast.error("Please paste CSV data or structured product text");
+      toast.error("Please paste CSV data or upload a template file");
       return;
     }
 
@@ -277,17 +316,20 @@ const Products = () => {
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        if (!line || line.toLowerCase().startsWith("name,sku")) continue; // Skip header
+        const lowerLine = line.toLowerCase();
+        if (!line || lowerLine.startsWith("name,") || lowerLine.startsWith("product name")) continue; // Skip header
 
-        // Name, SKU, Barcode, Category, Size, ElecAmount, RetAmount, Description
+        // Name, HSN Code, Barcode, Category, GST Category, ElecAmount, RetAmount, Description
         const parts = line.split(",").map((s) => s.trim().replace(/^"|"$/g, ""));
         if (parts.length >= 4) {
           parsedProducts.push({
             name: parts[0],
             sku: parts[1],
+            hsnCode: parts[1],
             barcode: parts[2],
             category: parts[3],
-            size: parts[4] || "",
+            size: parts[4] || "18%",
+            gstCategory: parts[4] || "18%",
             electricianAmount: Number(parts[5]) || 0,
             retailerAmount: Number(parts[6]) || 0,
             description: parts[7] || "",
@@ -296,7 +338,7 @@ const Products = () => {
       }
 
       if (parsedProducts.length === 0) {
-        toast.error("No valid product rows parsed. Format: Name, SKU, Barcode, Category, Size, ElecAmount, RetAmount");
+        toast.error("No valid product rows parsed. Format: Product Name, HSN Code, Barcode, Category, GST Category, Electrician Cashback, Retailer Cashback, Description");
         setIsSubmitting(false);
         return;
       }
@@ -318,13 +360,39 @@ const Products = () => {
     }
   };
 
+  const handleDownloadProductTemplate = () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      "Product Name,HSN Code,Barcode,Category,GST Category,Electrician Cashback,Retailer Cashback,Description\n" +
+      "Copper Wire 2.5mm,8544,BAR-CW25,Cables & Wires,18%,30,10,High quality flame retardant copper wire\n" +
+      "Modular Switch 6A,8536,BAR-MS06,Switches,18%,20,5,Modular one way switch\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "Product_Bulk_Import_Template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Product import template downloaded!");
+  };
+
+  const handleProductCSVUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      setBulkImportText(evt.target.result);
+      toast.success(`Loaded file: ${file.name}`);
+    };
+    reader.readAsText(file);
+  };
+
   const handleExportProductsExcel = () => {
     const columns = [
       { label: "Product Name", key: "name" },
-      { label: "SKU", key: "sku" },
+      { label: "HSN Code", key: (p) => p.hsnCode || p.sku || "-" },
       { label: "Barcode", key: (p) => p.barcode || "-" },
       { label: "Category", key: "category" },
-      { label: "Size", key: (p) => p.size || "-" },
+      { label: "GST Category", key: (p) => p.gstCategory || p.size || "-" },
       { label: "Electrician Cashback (₹)", key: (p) => p.cashbackConfig?.electricianAmount || 0 },
       { label: "Retailer Cashback (₹)", key: (p) => p.cashbackConfig?.retailerAmount || 0 },
       { label: "Status", key: (p) => (p.isActive ? "Active" : "Inactive") },
@@ -412,7 +480,7 @@ const Products = () => {
             </div>
             <input
               type="text"
-              placeholder="Search by name, SKU or Barcode..."
+              placeholder="Search by name, HSN Code or Barcode..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 p-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2"
@@ -435,9 +503,9 @@ const Products = () => {
                   />
                 </th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Product Name</th>
-                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>SKU</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>HSN Code</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Barcode</th>
-                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Size</th>
+                <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>GST Category</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Category</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Cashback (Elec / Ret)</th>
                 <th className="p-4 font-medium text-sm border-b" style={{ borderColor: themeColors.border }}>Status</th>
@@ -480,9 +548,9 @@ const Products = () => {
                           <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{product.description}</p>
                         )}
                       </td>
-                      <td className="p-4 font-mono text-sm text-gray-600">{product.sku}</td>
+                      <td className="p-4 font-mono text-sm text-gray-600">{product.hsnCode || product.sku}</td>
                       <td className="p-4 font-mono text-sm text-gray-600">{product.barcode || "-"}</td>
-                      <td className="p-4 text-sm text-gray-700">{product.size || "-"}</td>
+                      <td className="p-4 text-sm text-gray-700 font-semibold">{product.gstCategory || product.size || "-"}</td>
                       <td className="p-4 text-sm text-gray-700">{product.category}</td>
                       <td className="p-4">
                         <div className="flex flex-col gap-1 text-sm">
@@ -696,26 +764,56 @@ const Products = () => {
             </div>
 
             <form onSubmit={handleBulkImportSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
-              <p className="text-xs text-gray-600">
-                Paste comma-separated (CSV) product rows in the box below. Header line is optional.
-                <br />
-                <strong>Format:</strong> <code>Name, SKU, Barcode, Category, Size, ElectricianAmount, RetailerAmount, Description</code>
-              </p>
-              
-              <div className="bg-gray-50 p-3 rounded-lg border font-mono text-xs text-gray-700">
-                Copper Wire 4mm, CW-400, BAR-400, Cables, 4mm, 50, 20, High quality copper cable
-                <br />
-                Switch Board 8 Modular, SB-8M, BAR-8M, Switches, 8M, 30, 10, Modular switch plate
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-purple-50 p-3.5 rounded-lg border border-purple-200">
+                <div>
+                  <p className="text-xs font-bold text-purple-900">Standard Import Format:</p>
+                  <p className="text-[11px] text-purple-700 mt-0.5">
+                    Download the pre-formatted sample template file, fill product rows, and upload.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDownloadProductTemplate}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-purple-300 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition shadow-xs"
+                  >
+                    <FaDownload /> Download Template
+                  </button>
+                  <input
+                    type="file"
+                    ref={bulkFileInputRef}
+                    accept=".csv,.txt"
+                    onChange={handleProductCSVUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => bulkFileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition shadow-xs"
+                  >
+                    <FaUpload /> Upload File
+                  </button>
+                </div>
               </div>
 
-              <textarea
-                rows="8"
-                value={bulkImportText}
-                onChange={(e) => setBulkImportText(e.target.value)}
-                placeholder="Paste CSV content here..."
-                className="w-full border rounded-lg p-3 text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
-                required
-              ></textarea>
+              <div className="bg-gray-50 p-3 rounded-lg border text-xs text-gray-700 space-y-1">
+                <p className="font-semibold text-gray-800">Columns structure:</p>
+                <code className="text-[11px] font-mono block bg-white p-2 rounded border text-gray-800">
+                  Product Name, HSN Code, Barcode, Category, GST Category, Electrician Cashback, Retailer Cashback, Description
+                </code>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">CSV Data Preview / Edit</label>
+                <textarea
+                  rows="8"
+                  value={bulkImportText}
+                  onChange={(e) => setBulkImportText(e.target.value)}
+                  placeholder="Paste CSV rows here or click 'Upload File' above..."
+                  className="w-full border rounded-lg p-3 text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
+                  required
+                ></textarea>
+              </div>
 
               <div className="pt-2 flex justify-end gap-3">
                 <button
@@ -767,20 +865,20 @@ const Products = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU (Stock Keeping Unit) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">HSN Code *</label>
                   <input
                     type="text"
-                    name="sku"
-                    value={formData.sku}
-                    onChange={handleInputChange}
-                    placeholder="e.g., CW-500"
+                    name="hsnCode"
+                    value={formData.hsnCode || formData.sku}
+                    onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value, sku: e.target.value })}
+                    placeholder="e.g., 8544"
                     className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Barcode (Unique ID) *</label>
                   <input
@@ -793,28 +891,73 @@ const Products = () => {
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                  <input
-                    type="text"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Cables & Wires"
-                    className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Category *</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsNewCategory(!isNewCategory);
+                        if (!isNewCategory) {
+                          setFormData(prev => ({ ...prev, newCategory: "" }));
+                        }
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline"
+                    >
+                      {isNewCategory ? "← Select Existing" : "+ New Category"}
+                    </button>
+                  </div>
+                  {isNewCategory ? (
+                    <input
+                      type="text"
+                      name="newCategory"
+                      value={formData.newCategory}
+                      onChange={(e) => setFormData({ ...formData, newCategory: e.target.value })}
+                      placeholder="Enter new category name..."
+                      className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50/30"
+                      required
+                      autoFocus
+                    />
+                  ) : (
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={(e) => {
+                        if (e.target.value === "__NEW__") {
+                          setIsNewCategory(true);
+                        } else {
+                          setFormData({ ...formData, category: e.target.value });
+                        }
+                      }}
+                      className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      required
+                    >
+                      <option value="">-- Select Category --</option>
+                      {existingCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                      <option value="__NEW__" className="text-blue-600 font-semibold">+ Create New Category</option>
+                    </select>
+                  )}
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Size</label>
-                  <input
-                    type="text"
-                    name="size"
-                    value={formData.size}
-                    onChange={handleInputChange}
-                    placeholder="e.g., XL, 5mm, 100g"
-                    className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">GST Category (% wise)</label>
+                  <select
+                    name="gstCategory"
+                    value={formData.gstCategory || formData.size || "18%"}
+                    onChange={(e) => setFormData({ ...formData, gstCategory: e.target.value, size: e.target.value })}
+                    className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="0%">0% (Nil / Exempt)</option>
+                    <option value="5%">5%</option>
+                    <option value="12%">12%</option>
+                    <option value="18%">18%</option>
+                    <option value="28%">28%</option>
+                  </select>
                 </div>
               </div>
 

@@ -3,7 +3,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaBell, FaPaperPlane, FaUsers, FaBolt, FaStore, FaEdit, FaTrash, FaTimes, FaPlus } from "react-icons/fa";
+import { FaBell, FaPaperPlane, FaUsers, FaBolt, FaStore, FaEdit, FaTrash, FaTimes, FaPlus, FaMobileAlt } from "react-icons/fa";
 import api from "../utils/api";
 
 const Notifications = () => {
@@ -25,6 +25,7 @@ const Notifications = () => {
     targetRole: "all",
     title: "",
     message: "",
+    phoneNumbers: "",
   });
 
   // Delete Modal State
@@ -86,6 +87,7 @@ const Notifications = () => {
         targetRole: "all",
         title: "",
         message: "",
+        phoneNumbers: "",
       });
       setModalOpen(false);
       fetchHistory();
@@ -285,7 +287,7 @@ const Notifications = () => {
               <div className="space-y-3">
                 <label className="block text-sm font-semibold text-gray-800">1. Select Target Audience</label>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {/* Option: All */}
                   <div 
                     onClick={() => setTargetRole("all")}
@@ -309,7 +311,7 @@ const Notifications = () => {
                     }`}
                   >
                     <FaBolt className="text-2xl" />
-                    <span className="font-semibold text-xs">Electricians Only</span>
+                    <span className="font-semibold text-xs">Electricians</span>
                   </div>
 
                   {/* Option: Retailer */}
@@ -322,9 +324,42 @@ const Notifications = () => {
                     }`}
                   >
                     <FaStore className="text-2xl" />
-                    <span className="font-semibold text-xs">Retailers Only</span>
+                    <span className="font-semibold text-xs">Retailers</span>
+                  </div>
+
+                  {/* Option: Bulk Mobile Numbers */}
+                  <div 
+                    onClick={() => setTargetRole("custom")}
+                    className={`cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center justify-center gap-1 transition-all ${
+                      formData.targetRole === "custom" 
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm" 
+                        : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
+                    <FaMobileAlt className="text-2xl" />
+                    <span className="font-semibold text-xs">Bulk Numbers</span>
                   </div>
                 </div>
+
+                {formData.targetRole === "custom" && (
+                  <div className="mt-3 p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 space-y-1.5 animate-in fade-in">
+                    <label className="block text-xs font-bold text-emerald-900">
+                      Enter Mobile Numbers (Comma or newline separated) *
+                    </label>
+                    <textarea
+                      name="phoneNumbers"
+                      value={formData.phoneNumbers}
+                      onChange={handleInputChange}
+                      placeholder="e.g. 9876543210, 9812345678 or paste numbers line by line..."
+                      rows="3"
+                      className="w-full p-2.5 rounded-lg border text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    ></textarea>
+                    <p className="text-[11px] text-emerald-700">
+                      Only registered electricians and retailers with matching numbers will receive this broadcast push notification.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Message Content */}

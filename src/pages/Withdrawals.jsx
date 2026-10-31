@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { 
   FaMoneyBillWave, FaCheckCircle, FaTimesCircle, FaClock, FaEye, 
   FaDownload, FaUpload, FaFileExcel, FaCopy, FaCheck, FaSearch, 
-  FaSpinner, FaTimes, FaListAlt, FaBuilding 
+  FaSpinner, FaTimes, FaListAlt, FaBuilding, FaEdit 
 } from "react-icons/fa";
 import api from "../utils/api";
 import { exportToExcel } from "../utils/excelExport";
@@ -39,6 +39,12 @@ const Withdrawals = () => {
   const [processingId, setProcessingId] = useState(null);
   const [processData, setProcessData] = useState({ action: "approve", transactionNumber: "", adminRemarks: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Remarks Modal State (Point 5)
+  const [remarksModalOpen, setRemarksModalOpen] = useState(false);
+  const [selectedWithdrawalForRemarks, setSelectedWithdrawalForRemarks] = useState(null);
+  const [remarksText, setRemarksText] = useState("");
+  const [submittingRemarks, setSubmittingRemarks] = useState(false);
 
   // Bulk UTR Upload Modal State
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -362,6 +368,32 @@ const Withdrawals = () => {
     }
   };
 
+  const handleOpenRemarksModal = (withdrawal) => {
+    setSelectedWithdrawalForRemarks(withdrawal);
+    setRemarksText(withdrawal.adminRemarks || "");
+    setRemarksModalOpen(true);
+  };
+
+  const handleSaveRemarks = async (e) => {
+    e.preventDefault();
+    if (!selectedWithdrawalForRemarks) return;
+    setSubmittingRemarks(true);
+    try {
+      const response = await api.put(`/api/admin/withdrawals/${selectedWithdrawalForRemarks._id}/remarks`, {
+        adminRemarks: remarksText.trim(),
+      });
+      if (response.data.success) {
+        toast.success("Admin remarks updated successfully!");
+        setRemarksModalOpen(false);
+        fetchWithdrawals();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to update remarks");
+    } finally {
+      setSubmittingRemarks(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case "approved":
@@ -423,7 +455,7 @@ const Withdrawals = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div 
           onClick={() => setFilterStatus("all")}
           className={`p-4 rounded-xl border shadow-xs cursor-pointer transition-all ${filterStatus === 'all' ? 'ring-2 ring-purple-500' : ''}`}
@@ -445,7 +477,7 @@ const Withdrawals = () => {
             <span className="text-xs font-semibold text-gray-500 uppercase">Pending Transfer</span>
             <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><FaClock /></div>
           </div>
-          <p className="text-2xl font-bold mt-2 text-amber-600">{stats.pending}</p>
+          <p className="text-2xl font-bold mt-2 text-amber-600">{stats.pending + stats.processing}</p>
           <span className="text-xs text-gray-400">₹{stats.totalPendingAmt} queued</span>
         </div>
 
@@ -461,22 +493,6 @@ const Withdrawals = () => {
           <p className="text-2xl font-bold mt-2 text-green-600">{stats.approved}</p>
           <span className="text-xs text-green-700 font-semibold">₹{stats.totalApprovedAmt} paid</span>
         </div>
-
-        <div 
-          onClick={() => {
-            setBulkMode("manual");
-            setBulkModalOpen(true);
-          }}
-          className="p-4 rounded-xl border shadow-xs cursor-pointer transition-all hover:border-purple-300"
-          style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase">Batch UTR Entry</span>
-            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><FaUpload /></div>
-          </div>
-          <p className="text-sm font-bold mt-2 text-blue-600">Quick Enter UTRs &rarr;</p>
-          <span className="text-xs text-gray-400">{pendingOrProcessingWithdrawals.length} awaiting UTR</span>
-        </div>
       </div>
 
       {/* Main Table Container */}
@@ -485,22 +501,23 @@ const Withdrawals = () => {
         {/* Toolbar & Search */}
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center gap-4" style={{ borderColor: themeColors.border }}>
           
-          {/* Status Tabs */}
+          {/* Status Tabs (Point 6: Pending & Paid only) */}
           <div className="flex space-x-1.5 bg-gray-100 p-1 rounded-lg overflow-x-auto w-full md:w-auto">
             {[
-              { id: "all", label: "All" },
               { id: "pending", label: "Pending" },
-              { id: "processing", label: "In-Processing" },
-              { id: "approved", label: "Approved / Paid" },
-              { id: "rejected", label: "Rejected" },
+              { id: "approved", label: "Paid" },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setFilterStatus(tab.id)}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-2 text-xs font-bold rounded-md transition-all whitespace-nowrap cursor-pointer ${
                   filterStatus === tab.id ? "bg-white shadow-sm text-green-700" : "text-gray-600 hover:bg-gray-200"
                 }`}
               >
+                {tab.label}
+              </button>
+            ))}
+          </div>
                 {tab.label}
               </button>
             ))}
@@ -636,14 +653,11 @@ const Withdrawals = () => {
 
                       <td className="p-4 text-center">
                         <button
-                          onClick={() => handleProcessClick(withdrawal)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer ${
-                            isPaid
-                              ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                              : "bg-blue-600 hover:bg-blue-700 text-white"
-                          }`}
+                          onClick={() => handleOpenRemarksModal(withdrawal)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-xs cursor-pointer flex items-center gap-1 mx-auto"
+                          title="Change Admin Remarks"
                         >
-                          {isPaid ? "Update UTR" : "Process / Pay"}
+                          <FaEdit /> Remarks
                         </button>
                       </td>
                     </tr>
@@ -703,7 +717,7 @@ const Withdrawals = () => {
       </div>
 
       {/* ====================================================
-          🚀 BULK BANK UTR UPLOAD & BATCH ENTRY MODAL
+          🚀 BULK BANK UTR UPLOAD MODAL (ONLY FORMAT / FILE UPLOAD)
          ==================================================== */}
       {bulkModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
@@ -717,7 +731,7 @@ const Withdrawals = () => {
                   Upload Bank Transaction (UTR) Numbers
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Update UTRs returned by bank to finalize payouts and notify electricians/retailers automatically.
+                  Upload bank response file (.csv) to update UTR numbers and complete payouts.
                 </p>
               </div>
 
@@ -731,198 +745,111 @@ const Withdrawals = () => {
               </div>
             </div>
 
-            {/* Mode Selector Tabs */}
-            <div className="flex border-b bg-gray-100 px-5 pt-3 gap-2">
-              <button
-                onClick={() => setBulkMode("file")}
-                className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-                  bulkMode === "file"
-                    ? "border-purple-600 text-purple-700 bg-white rounded-t-lg"
-                    : "border-transparent text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                Upload Excel / CSV File
-              </button>
-              <button
-                onClick={() => setBulkMode("manual")}
-                className={`pb-3 px-4 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-                  bulkMode === "manual"
-                    ? "border-purple-600 text-purple-700 bg-white rounded-t-lg"
-                    : "border-transparent text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                Quick Batch Form Entry ({pendingOrProcessingWithdrawals.length})
-              </button>
-            </div>
-
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto flex-1 space-y-5">
               
-              {bulkMode === "file" ? (
-                <>
-                  {/* File Upload Drop Area */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/50">
-                    <div>
-                      <h4 className="text-sm font-bold text-purple-900">Upload Bank Response File (.csv / .xlsx)</h4>
-                      <p className="text-xs text-purple-700 mt-0.5">
-                        File should contain columns: <b>Withdrawal ID</b> (or <b>Account Number</b>) and <b>Transaction / UTR Number</b>.
-                      </p>
-                    </div>
+              {/* File Upload Drop Area */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/50">
+                <div>
+                  <h4 className="text-sm font-bold text-purple-900">Upload Bank Response File (.csv / .xlsx)</h4>
+                  <p className="text-xs text-purple-700 mt-0.5">
+                    File should contain columns: <b>Withdrawal ID</b> (or <b>Account Number</b>) and <b>Transaction / UTR Number</b>.
+                  </p>
+                </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleDownloadUTRTemplate}
-                        className="px-3 py-2 bg-white border border-purple-300 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-50 shadow-xs cursor-pointer flex items-center gap-1.5"
-                      >
-                        <FaDownload /> Download Template
-                      </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadUTRTemplate}
+                    className="px-3 py-2 bg-white border border-purple-300 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-50 shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <FaDownload /> Download Template
+                  </button>
 
-                      <input 
-                        type="file" 
-                        ref={fileInputRef}
-                        accept=".csv,.txt"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer flex items-center gap-1.5"
-                      >
-                        <FaUpload /> {fileName ? "Change File" : "Choose CSV File"}
-                      </button>
-                    </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    accept=".csv,.txt"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer flex items-center gap-1.5"
+                  >
+                    <FaUpload /> {fileName ? "Change File" : "Choose CSV File"}
+                  </button>
+                </div>
+              </div>
+
+              {fileName && (
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border rounded-lg text-xs text-gray-700">
+                  <span>Loaded File: <b>{fileName}</b> ({parsedBulkData.length} rows parsed)</span>
+                  <span className="text-green-600 font-bold">
+                    {parsedBulkData.filter(p => p.isValid).length} ready to upload
+                  </span>
+                </div>
+              )}
+
+              {/* Parsed Preview Table */}
+              {parsedBulkData.length > 0 ? (
+                <div className="border rounded-xl overflow-hidden shadow-xs">
+                  <div className="p-3 bg-gray-50 border-b flex justify-between items-center text-xs font-bold text-gray-700">
+                    <span>Preview of Transactions to Approve ({parsedBulkData.length} records)</span>
                   </div>
-
-                  {fileName && (
-                    <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border rounded-lg text-xs text-gray-700">
-                      <span>Loaded File: <b>{fileName}</b> ({parsedBulkData.length} rows parsed)</span>
-                      <span className="text-green-600 font-bold">
-                        {parsedBulkData.filter(p => p.isValid).length} ready to upload
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Parsed Preview Table */}
-                  {parsedBulkData.length > 0 ? (
-                    <div className="border rounded-xl overflow-hidden shadow-xs">
-                      <div className="p-3 bg-gray-50 border-b flex justify-between items-center text-xs font-bold text-gray-700">
-                        <span>Preview of Transactions to Approve ({parsedBulkData.length} records)</span>
-                      </div>
-                      <div className="max-h-72 overflow-y-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead className="sticky top-0 bg-gray-100 text-gray-600">
-                            <tr>
-                              <th className="p-2.5">User / Matched</th>
-                              <th className="p-2.5">Account No</th>
-                              <th className="p-2.5 text-right">Amount (₹)</th>
-                              <th className="p-2.5">Bank UTR / Txn No</th>
-                              <th className="p-2.5">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {parsedBulkData.map((item, idx) => (
-                              <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
-                                <td className="p-2.5">
-                                  <p className="font-semibold text-gray-800">
-                                    {item.matchedWithdrawal?.userId?.name || "Matched via ID/Acc"}
-                                  </p>
-                                  <span className="text-[10px] text-gray-500 font-mono">{item.withdrawalId || "-"}</span>
-                                </td>
-                                <td className="p-2.5 font-mono">{item.accountNumber || "-"}</td>
-                                <td className="p-2.5 text-right font-bold text-green-600">₹{item.amount}</td>
-                                <td className="p-2.5 font-mono font-bold text-purple-700">
-                                  {item.transactionNumber ? (
-                                    <span className="px-2 py-0.5 bg-purple-50 rounded border border-purple-200">
-                                      {item.transactionNumber}
-                                    </span>
-                                  ) : (
-                                    <span className="text-red-500 italic">Missing UTR</span>
-                                  )}
-                                </td>
-                                <td className="p-2.5">
-                                  {item.isValid ? (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                                      <FaCheck /> Ready
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-                                      <FaTimes /> Incomplete
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center p-8 border border-dashed rounded-xl text-gray-400 space-y-2">
-                      <FaFileExcel className="text-3xl mx-auto text-gray-300" />
-                      <p className="text-xs font-medium">No file selected yet. Download the template or export payout sheet, fill UTR numbers, and upload.</p>
-                    </div>
-                  )}
-                </>
-              ) : (
-                /* Manual Batch Entry Form */
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-xs text-gray-600">
-                    <span>Enter bank UTR / Ref numbers for all pending payouts below:</span>
-                    <span className="font-bold text-purple-700">{pendingOrProcessingWithdrawals.length} pending payouts</span>
-                  </div>
-
-                  {pendingOrProcessingWithdrawals.length === 0 ? (
-                    <div className="text-center p-8 border rounded-xl text-gray-400">
-                      No pending or processing withdrawals to update!
-                    </div>
-                  ) : (
-                    <div className="border rounded-xl overflow-hidden max-h-80 overflow-y-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead className="sticky top-0 bg-gray-100 text-gray-600">
-                          <tr>
-                            <th className="p-2.5">User</th>
-                            <th className="p-2.5">Bank & A/C</th>
-                            <th className="p-2.5 text-right">Amount (₹)</th>
-                            <th className="p-2.5">Enter Bank UTR / Txn No</th>
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="sticky top-0 bg-gray-100 text-gray-600">
+                        <tr>
+                          <th className="p-2.5">User / Matched</th>
+                          <th className="p-2.5">Account No</th>
+                          <th className="p-2.5 text-right">Amount (₹)</th>
+                          <th className="p-2.5">Bank UTR / Txn No</th>
+                          <th className="p-2.5">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedBulkData.map((item, idx) => (
+                          <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
+                            <td className="p-2.5">
+                              <p className="font-semibold text-gray-800">
+                                {item.matchedWithdrawal?.userId?.name || "Matched via ID/Acc"}
+                              </p>
+                              <span className="text-[10px] text-gray-500 font-mono">{item.withdrawalId || "-"}</span>
+                            </td>
+                            <td className="p-2.5 font-mono">{item.accountNumber || "-"}</td>
+                            <td className="p-2.5 text-right font-bold text-green-600">₹{item.amount}</td>
+                            <td className="p-2.5 font-mono font-bold text-purple-700">
+                              {item.transactionNumber ? (
+                                <span className="px-2 py-0.5 bg-purple-50 rounded border border-purple-200">
+                                  {item.transactionNumber}
+                                </span>
+                              ) : (
+                                <span className="text-red-500 italic">Missing UTR</span>
+                              )}
+                            </td>
+                            <td className="p-2.5">
+                              {item.isValid ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                                  <FaCheck /> Ready
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                                  <FaTimes /> Incomplete
+                                </span>
+                              )}
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {pendingOrProcessingWithdrawals.map((w) => {
-                            const bank = w.bankSnapshot || w.userId?.bankDetails || {};
-                            return (
-                              <tr key={w._id} className="border-b last:border-0 hover:bg-gray-50">
-                                <td className="p-2.5 font-bold text-gray-800">
-                                  {w.userId?.name}
-                                  <div className="text-[10px] text-gray-500 font-normal">{w.userId?.phone}</div>
-                                </td>
-                                <td className="p-2.5 font-mono">
-                                  <div>{bank.bankName}</div>
-                                  <div className="text-gray-500 font-bold">{bank.accountNumber}</div>
-                                </td>
-                                <td className="p-2.5 text-right font-bold text-green-600">
-                                  ₹{w.amount}
-                                </td>
-                                <td className="p-2.5">
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. UTR12345678"
-                                    value={batchManualEntries[w._id] || ""}
-                                    onChange={(e) => setBatchManualEntries({
-                                      ...batchManualEntries,
-                                      [w._id]: e.target.value
-                                    })}
-                                    className="w-full border rounded px-2 py-1 font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                  />
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center p-8 border border-dashed rounded-xl text-gray-400 space-y-2">
+                  <FaFileExcel className="text-3xl mx-auto text-gray-300" />
+                  <p className="text-xs font-medium">No file selected yet. Download the template or export payout sheet, fill UTR numbers, and upload.</p>
                 </div>
               )}
 
@@ -938,27 +865,15 @@ const Withdrawals = () => {
                 Cancel
               </button>
 
-              {bulkMode === "file" ? (
-                <button
-                  type="button"
-                  onClick={handleSubmitBulkUTRs}
-                  disabled={isUploadingBulk || parsedBulkData.filter(p => p.isValid).length === 0}
-                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-                >
-                  {isUploadingBulk ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
-                  Upload & Approve All ({parsedBulkData.filter(p => p.isValid).length})
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleBatchManualSubmit}
-                  disabled={isUploadingBulk || Object.values(batchManualEntries).filter(v => v.trim()).length === 0}
-                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-                >
-                  {isUploadingBulk ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
-                  Submit All Filled UTRs
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleSubmitBulkUTRs}
+                disabled={isUploadingBulk || parsedBulkData.filter(p => p.isValid).length === 0}
+                className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              >
+                {isUploadingBulk ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
+                Upload & Approve All ({parsedBulkData.filter(p => p.isValid).length})
+              </button>
             </div>
 
           </div>
@@ -1057,6 +972,71 @@ const Withdrawals = () => {
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? "Processing..." : `Confirm ${processData.action === 'approve' ? 'Payment' : 'Rejection'}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDIT / CHANGE ADMIN REMARKS (POINT 5)                              */}
+      {/* ========================================================================= */}
+      {remarksModalOpen && selectedWithdrawalForRemarks && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-md rounded-2xl shadow-2xl border p-6 overflow-hidden animate-in fade-in zoom-in duration-200"
+            style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+          >
+            <div className="flex justify-between items-center border-b pb-3 mb-4" style={{ borderColor: themeColors.border }}>
+              <h3 className="text-lg font-bold flex items-center gap-2 text-blue-600">
+                <FaEdit /> Change Admin Remarks
+              </h3>
+              <button
+                onClick={() => setRemarksModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRemarks} className="space-y-4">
+              <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-100 text-xs text-blue-900 space-y-1">
+                <p><b>User:</b> {selectedWithdrawalForRemarks.userId?.name || "N/A"} ({selectedWithdrawalForRemarks.userId?.phone || ""})</p>
+                <p><b>Amount:</b> ₹{selectedWithdrawalForRemarks.amount?.toLocaleString("en-IN")}</p>
+                <p><b>Status:</b> {selectedWithdrawalForRemarks.status}</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Admin Remarks / Notes
+                </label>
+                <textarea
+                  rows="4"
+                  placeholder="Enter remarks or update narration for this payout request..."
+                  value={remarksText}
+                  onChange={(e) => setRemarksText(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none bg-white"
+                  style={{ borderColor: themeColors.border }}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRemarksModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRemarks}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {submittingRemarks ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
+                  Save Remarks
                 </button>
               </div>
             </form>

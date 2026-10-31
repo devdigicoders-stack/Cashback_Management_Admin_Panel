@@ -101,12 +101,35 @@ const SalesPersons = () => {
     }
   };
 
-  const handleOpenAddModal = () => {
+  const handleOpenAddModal = async () => {
     setIsEditing(false);
+    
+    // Auto-calculate next sequence code from loaded sales persons or API
+    let nextCode = "SP1001";
+    try {
+      const res = await api.get('/api/admin/sales-persons/next-code');
+      if (res.data?.success && res.data.nextCode) {
+        nextCode = res.data.nextCode;
+      }
+    } catch (err) {
+      // Fallback: calculate from existing list in memory
+      let maxNum = 1000;
+      salesPersons.forEach((sp) => {
+        if (sp.code) {
+          const match = sp.code.match(/(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
+      });
+      nextCode = `SP${maxNum + 1}`;
+    }
+
     setFormData({
       id: "",
       name: "",
-      code: "",
+      code: nextCode,
       phone: "",
       email: "",
       city: "",
@@ -643,13 +666,18 @@ const SalesPersons = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: themeColors.textSecondary }}>
-                    Sales Referral Code <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-semibold" style={{ color: themeColors.textSecondary }}>
+                      Sales Referral Code <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">
+                      Auto Sequence
+                    </span>
+                  </div>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. SP1001 or RAJESH"
+                    placeholder="e.g. SP1001"
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                     className="w-full px-3.5 py-2.5 rounded-xl border text-sm uppercase font-mono font-bold focus:outline-none focus:ring-2"

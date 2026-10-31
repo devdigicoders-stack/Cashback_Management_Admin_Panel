@@ -103,6 +103,12 @@ const Reports = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [submittingReject, setSubmittingReject] = useState(false);
 
+  // Change Admin Remarks Modal State (Point 5)
+  const [remarksModalOpen, setRemarksModalOpen] = useState(false);
+  const [selectedWithdrawalForRemarks, setSelectedWithdrawalForRemarks] = useState(null);
+  const [remarksText, setRemarksText] = useState("");
+  const [submittingRemarks, setSubmittingRemarks] = useState(false);
+
   // Pagination for Payouts
   const [payoutPage, setPayoutPage] = useState(1);
   const [payoutItemsPerPage, setPayoutItemsPerPage] = useState(15);
@@ -758,6 +764,33 @@ const Reports = () => {
     }
   };
 
+  // Change Admin Remarks Workflow
+  const handleOpenRemarksModal = (withdrawal) => {
+    setSelectedWithdrawalForRemarks(withdrawal);
+    setRemarksText(withdrawal.adminRemarks || "");
+    setRemarksModalOpen(true);
+  };
+
+  const handleSaveRemarks = async (e) => {
+    e.preventDefault();
+    if (!selectedWithdrawalForRemarks) return;
+    setSubmittingRemarks(true);
+    try {
+      const response = await api.put(`/api/admin/withdrawals/${selectedWithdrawalForRemarks._id}/remarks`, {
+        adminRemarks: remarksText.trim(),
+      });
+      if (response.data.success) {
+        toast.success("Admin remarks updated successfully!");
+        setRemarksModalOpen(false);
+        fetchPayouts();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to update remarks");
+    } finally {
+      setSubmittingRemarks(false);
+    }
+  };
+
   // Helper Badge Renderers
   const getPayoutStatusBadge = (status) => {
     switch (status) {
@@ -845,7 +878,7 @@ const Reports = () => {
       {activeTab === "payouts" && (
         <div className="space-y-6">
           {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div
               className="p-4 rounded-2xl border shadow-xs"
               style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
@@ -862,21 +895,9 @@ const Reports = () => {
               }`}
               style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
             >
-              <p className="text-xs font-semibold uppercase text-amber-600">Pending Transfer</p>
-              <p className="text-xl font-bold text-amber-600 mt-1">₹{payoutSummary.pendingAmount.toLocaleString("en-IN")}</p>
-              <p className="text-xs text-amber-700 mt-0.5">{payoutSummary.pendingCount} pending requests</p>
-            </div>
-
-            <div
-              onClick={() => setPayoutStatus("processing")}
-              className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
-                payoutStatus === "processing" ? "ring-2 ring-blue-500 bg-blue-50/40" : ""
-              }`}
-              style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
-            >
-              <p className="text-xs font-semibold uppercase text-blue-600">In-Process (RTGS)</p>
-              <p className="text-xl font-bold text-blue-600 mt-1">₹{payoutSummary.processingAmount.toLocaleString("en-IN")}</p>
-              <p className="text-xs text-blue-700 mt-0.5">{payoutSummary.processingCount} in bank process</p>
+              <p className="text-xs font-semibold uppercase text-amber-600">Pending</p>
+              <p className="text-xl font-bold text-amber-600 mt-1">₹{(payoutSummary.pendingAmount + payoutSummary.processingAmount).toLocaleString("en-IN")}</p>
+              <p className="text-xs text-amber-700 mt-0.5">{payoutSummary.pendingCount + payoutSummary.processingCount} pending requests</p>
             </div>
 
             <div
@@ -886,21 +907,9 @@ const Reports = () => {
               }`}
               style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
             >
-              <p className="text-xs font-semibold uppercase text-emerald-600">Paid & Completed</p>
+              <p className="text-xs font-semibold uppercase text-emerald-600">Paid</p>
               <p className="text-xl font-bold text-emerald-600 mt-1">₹{payoutSummary.approvedAmount.toLocaleString("en-IN")}</p>
               <p className="text-xs text-emerald-700 mt-0.5">{payoutSummary.approvedCount} successfully paid</p>
-            </div>
-
-            <div
-              onClick={() => setPayoutStatus("rejected")}
-              className={`p-4 rounded-2xl border shadow-xs cursor-pointer transition-all ${
-                payoutStatus === "rejected" ? "ring-2 ring-red-500 bg-red-50/40" : ""
-              }`}
-              style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
-            >
-              <p className="text-xs font-semibold uppercase text-red-600">Rejected</p>
-              <p className="text-xl font-bold text-red-600 mt-1">₹{payoutSummary.rejectedAmount.toLocaleString("en-IN")}</p>
-              <p className="text-xs text-red-700 mt-0.5">{payoutSummary.rejectedCount} rejected requests</p>
             </div>
           </div>
 
@@ -914,9 +923,7 @@ const Reports = () => {
                 <span className="text-xs font-bold uppercase text-gray-500">Status:</span>
                 {[
                   { id: "pending", label: "Pending" },
-                  { id: "processing", label: "In-Processing" },
-                  { id: "approved", label: "Paid / Completed" },
-                  { id: "rejected", label: "Rejected" },
+                  { id: "approved", label: "Paid" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -924,12 +931,16 @@ const Reports = () => {
                       setPayoutStatus(tab.id);
                       setPayoutPage(1);
                     }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       payoutStatus === tab.id
                         ? "bg-blue-600 text-white shadow-xs"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                   >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
                     {tab.label}
                   </button>
                 ))}
@@ -1143,11 +1154,22 @@ const Reports = () => {
                             ) : (
                               <span className="text-gray-400 text-[11px] italic">-</span>
                             )}
-                            {w.adminRemarks && (
-                              <p className="text-[10px] text-gray-500 mt-0.5 italic truncate max-w-[150px]" title={w.adminRemarks}>
-                                {w.adminRemarks}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-1.5 mt-1">
+                              {w.adminRemarks ? (
+                                <p className="text-[10px] text-gray-500 italic truncate max-w-[130px]" title={w.adminRemarks}>
+                                  {w.adminRemarks}
+                                </p>
+                              ) : (
+                                <span className="text-[10px] text-gray-400 italic">No remarks</span>
+                              )}
+                              <button
+                                onClick={() => handleOpenRemarksModal(w)}
+                                className="text-blue-600 hover:text-blue-800 p-0.5 rounded cursor-pointer"
+                                title="Change Admin Remarks"
+                              >
+                                <FaEdit className="text-[11px]" />
+                              </button>
+                            </div>
                           </td>
 
                           <td className="p-3.5 text-gray-500 text-[11px]">
@@ -1160,36 +1182,22 @@ const Reports = () => {
                           </td>
 
                           <td className="p-3.5 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {(w.status === "pending" || w.status === "processing") && (
-                                <button
-                                  onClick={() => handleOpenCompletePaymentModal(w)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer flex items-center gap-1"
-                                  title="Enter Bank UTR / Transaction number to finalize payment"
-                                >
-                                  <FaReceipt /> Pay & Complete
-                                </button>
-                              )}
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleOpenRemarksModal(w)}
+                                className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px] shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                                title="Change Admin Remarks"
+                              >
+                                <FaEdit /> Edit Remarks
+                              </button>
 
-                              {(w.status === "pending" || w.status === "processing") && (
-                                <button
-                                  onClick={() => handleOpenRejectModal(w)}
-                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs transition-all cursor-pointer"
-                                  title="Reject Payout Request"
-                                >
-                                  <FaTimesCircle />
-                                </button>
-                              )}
-
-                              {w.status === "approved" && (
-                                <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                              {w.status === "approved" ? (
+                                <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
                                   <FaCheckCircle /> Paid
                                 </span>
-                              )}
-
-                              {w.status === "rejected" && (
-                                <span className="text-[11px] text-red-600 font-semibold flex items-center gap-1">
-                                  <FaTimesCircle /> Rejected
+                              ) : (
+                                <span className="text-[11px] text-amber-600 font-bold flex items-center gap-1">
+                                  <FaClock /> Pending
                                 </span>
                               )}
                             </div>
@@ -1259,7 +1267,7 @@ const Reports = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <div>
                 <label className="text-[11px] font-semibold text-gray-500 block mb-1">User Role</label>
                 <select
@@ -1313,7 +1321,7 @@ const Reports = () => {
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Reg Date Preset</label>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Date Preset</label>
                 <select
                   value={userDatePreset}
                   onChange={(e) => handleUserPresetChange(e.target.value)}
@@ -1324,7 +1332,37 @@ const Reports = () => {
                   <option value="today">Today</option>
                   <option value="last7">Last 7 Days</option>
                   <option value="thisMonth">This Month</option>
+                  <option value="custom">Custom Date Range</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">Custom Date Range</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={userStartDate}
+                    onChange={(e) => {
+                      setUserStartDate(e.target.value);
+                      setUserDatePreset("custom");
+                    }}
+                    className="w-full px-2 py-1.5 rounded-lg border text-xs focus:outline-none bg-white"
+                    style={{ borderColor: themeColors.border }}
+                    title="Start Date"
+                  />
+                  <span className="text-[10px] text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={userEndDate}
+                    onChange={(e) => {
+                      setUserEndDate(e.target.value);
+                      setUserDatePreset("custom");
+                    }}
+                    className="w-full px-2 py-1.5 rounded-lg border text-xs focus:outline-none bg-white"
+                    style={{ borderColor: themeColors.border }}
+                    title="End Date"
+                  />
+                </div>
               </div>
 
               <div>
@@ -2059,6 +2097,71 @@ const Reports = () => {
                 >
                   {submittingReject ? <FaSpinner className="animate-spin" /> : <FaTimesCircle />}
                   Confirm Rejection
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDIT / CHANGE ADMIN REMARKS (POINT 5)                              */}
+      {/* ========================================================================= */}
+      {remarksModalOpen && selectedWithdrawalForRemarks && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-md rounded-2xl shadow-2xl border p-6 overflow-hidden animate-in fade-in zoom-in duration-200"
+            style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}
+          >
+            <div className="flex justify-between items-center border-b pb-3 mb-4" style={{ borderColor: themeColors.border }}>
+              <h3 className="text-lg font-bold flex items-center gap-2 text-blue-600">
+                <FaEdit /> Change Admin Remarks
+              </h3>
+              <button
+                onClick={() => setRemarksModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRemarks} className="space-y-4">
+              <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-100 text-xs text-blue-900 space-y-1">
+                <p><b>User:</b> {selectedWithdrawalForRemarks.userId?.name || "N/A"} ({selectedWithdrawalForRemarks.userId?.phone || ""})</p>
+                <p><b>Amount:</b> ₹{selectedWithdrawalForRemarks.amount?.toLocaleString("en-IN")}</p>
+                <p><b>Status:</b> {selectedWithdrawalForRemarks.status}</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Admin Remarks / Notes
+                </label>
+                <textarea
+                  rows="4"
+                  placeholder="Enter remarks or update narration for this payout request..."
+                  value={remarksText}
+                  onChange={(e) => setRemarksText(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none bg-white"
+                  style={{ borderColor: themeColors.border }}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRemarksModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRemarks}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {submittingRemarks ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
+                  Save Remarks
                 </button>
               </div>
             </form>
