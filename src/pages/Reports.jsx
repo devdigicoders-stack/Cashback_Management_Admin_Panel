@@ -941,10 +941,6 @@ const Reports = () => {
                   </button>
                 ))}
               </div>
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
 
               <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
                 <button
