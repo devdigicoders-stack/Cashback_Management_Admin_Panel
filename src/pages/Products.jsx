@@ -3,7 +3,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaBoxOpen, FaPlus, FaEdit, FaSearch, FaTimes, FaRupeeSign, FaTrash, FaPowerOff, FaDownload, FaFileUpload, FaLayerGroup, FaCheckSquare, FaSquare } from "react-icons/fa";
+import { FaBoxOpen, FaPlus, FaEdit, FaSearch, FaTimes, FaRupeeSign, FaTrash, FaPowerOff, FaDownload, FaFileUpload, FaUpload, FaLayerGroup, FaCheckSquare, FaSquare } from "react-icons/fa";
 import api from "../utils/api";
 import { exportToExcel } from "../utils/excelExport";
 
