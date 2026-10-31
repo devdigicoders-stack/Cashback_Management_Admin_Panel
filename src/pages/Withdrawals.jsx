@@ -518,10 +518,6 @@ const Withdrawals = () => {
               </button>
             ))}
           </div>
-                {tab.label}
-              </button>
-            ))}
-          </div>
 
           {/* Search Box */}
           <div className="relative w-full md:w-72">
