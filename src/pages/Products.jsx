@@ -39,8 +39,17 @@ const Products = () => {
   const [bulkImportText, setBulkImportText] = useState("");
   const bulkFileInputRef = useRef(null);
 
-  // Category creation toggle
-  const [isNewCategory, setIsNewCategory] = useState(false);
+  // Category creation modal and custom list
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [newCatInput, setNewCatInput] = useState("");
+  const [customCategories, setCustomCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem("app_custom_categories");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -55,7 +64,6 @@ const Products = () => {
     size: "",
     gstCategory: "18%",
     category: "",
-    newCategory: "",
     description: "",
     electricianAmount: 0,
     retailerAmount: 0,
@@ -63,11 +71,14 @@ const Products = () => {
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // Extract unique existing categories
-  const existingCategories = useMemo(() => {
-    const cats = new Set(products.map((p) => p.category).filter(Boolean));
-    return Array.from(cats).sort();
-  }, [products]);
+  // Extract all unique categories (from products + custom added)
+  const allCategories = useMemo(() => {
+    const cats = new Set([
+      ...products.map((p) => p.category).filter(Boolean),
+      ...customCategories.filter(Boolean),
+    ]);
+    return Array.from(cats).sort((a, b) => a.localeCompare(b));
+  }, [products, customCategories]);
 
   useEffect(() => {
     fetchProducts();
@@ -107,17 +118,14 @@ const Products = () => {
         size: product.gstCategory || product.size || "18%",
         gstCategory: product.gstCategory || product.size || "18%",
         category: product.category || "",
-        newCategory: "",
         description: product.description || "",
         electricianAmount: product.cashbackConfig?.electricianAmount || 0,
         retailerAmount: product.cashbackConfig?.retailerAmount || 0,
         isActive: product.isActive,
       });
-      setIsNewCategory(false);
     } else {
       setEditId(null);
       setFormData(initialFormState);
-      setIsNewCategory(false);
     }
     setModalOpen(true);
   };
@@ -126,7 +134,34 @@ const Products = () => {
     setModalOpen(false);
     setEditId(null);
     setFormData(initialFormState);
-    setIsNewCategory(false);
+  };
+
+  const handleSaveNewCategory = (e) => {
+    e.preventDefault();
+    const trimmed = newCatInput.trim();
+    if (!trimmed) {
+      toast.error("Please enter category name");
+      return;
+    }
+
+    if (!customCategories.includes(trimmed)) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      try {
+        localStorage.setItem("app_custom_categories", JSON.stringify(updated));
+      } catch (err) {
+        console.error("Storage error:", err);
+      }
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      category: trimmed,
+    }));
+
+    toast.success(`Category "${trimmed}" created & selected in dropdown!`);
+    setNewCatInput("");
+    setCategoryModalOpen(false);
   };
 
   const handleInputChange = (e) => {
@@ -141,7 +176,7 @@ const Products = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const chosenCategory = isNewCategory ? formData.newCategory?.trim() : formData.category?.trim();
+    const chosenCategory = formData.category?.trim();
     if (!chosenCategory) {
       toast.error("Please select or enter a Category");
       setIsSubmitting(false);
@@ -898,50 +933,39 @@ const Products = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setIsNewCategory(!isNewCategory);
-                        if (!isNewCategory) {
-                          setFormData(prev => ({ ...prev, newCategory: "" }));
-                        }
+                        setNewCatInput("");
+                        setCategoryModalOpen(true);
                       }}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline"
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-all cursor-pointer"
                     >
-                      {isNewCategory ? "← Select Existing" : "+ New Category"}
+                      <FaPlus className="text-[10px]" /> + New Category
                     </button>
                   </div>
-                  {isNewCategory ? (
-                    <input
-                      type="text"
-                      name="newCategory"
-                      value={formData.newCategory}
-                      onChange={(e) => setFormData({ ...formData, newCategory: e.target.value })}
-                      placeholder="Enter new category name..."
-                      className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50/30"
-                      required
-                      autoFocus
-                    />
-                  ) : (
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={(e) => {
-                        if (e.target.value === "__NEW__") {
-                          setIsNewCategory(true);
-                        } else {
-                          setFormData({ ...formData, category: e.target.value });
-                        }
-                      }}
-                      className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      required
-                    >
-                      <option value="">-- Select Category --</option>
-                      {existingCategories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                      <option value="__NEW__" className="text-blue-600 font-semibold">+ Create New Category</option>
-                    </select>
-                  )}
+
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={(e) => {
+                      if (e.target.value === "__NEW__") {
+                        setNewCatInput("");
+                        setCategoryModalOpen(true);
+                      } else {
+                        setFormData({ ...formData, category: e.target.value });
+                      }
+                    }}
+                    className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    required
+                  >
+                    <option value="">-- Select Category --</option>
+                    {allCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="__NEW__" className="text-blue-600 font-bold bg-blue-50">
+                      + Create New Category...
+                    </option>
+                  </select>
                 </div>
 
                 <div>
@@ -1039,6 +1063,68 @@ const Products = () => {
                 {isSubmitting ? "Saving..." : editId ? "Update Product" : "Save Product"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Creation Modal */}
+      {categoryModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-[60] p-4" style={{ backgroundColor: "rgba(0, 0, 0, 0.55)" }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in duration-150">
+            <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+              <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <FaLayerGroup className="text-blue-600" /> Create New Category
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryModalOpen(false);
+                  setNewCatInput("");
+                }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewCategory} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Category Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  placeholder="e.g. Cables, Switches, LED Lights..."
+                  className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  autoFocus
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Yeh category save hote hi dropdown me select ho jayegi.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryModalOpen(false);
+                    setNewCatInput("");
+                  }}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FaPlus className="text-xs" /> Add & Select
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
