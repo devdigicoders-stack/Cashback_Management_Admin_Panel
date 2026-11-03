@@ -580,7 +580,7 @@ const Reports = () => {
         { label: "Sender Narration / Remarks", key: () => "Loyalty Cashback Payout" },
         { label: "Beneficiary Mobile", key: (w) => w.userId?.phone || "-" },
         { label: "User Role", key: (w) => w.userId?.role || "-" },
-        { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "-" },
+        { label: "User Unique ID", key: (w) => formatUserUniqueId(w.userId) },
         { label: "Request Reference ID", key: "_id" },
         { label: "Request Date", key: (w) => new Date(w.createdAt).toLocaleDateString("en-IN") },
       ];
@@ -595,6 +595,17 @@ const Reports = () => {
     }
   };
 
+  // Helper for short and clean User Unique ID (e.g. EL1001, RT1001)
+  const formatUserUniqueId = (user) => {
+    if (!user) return "-";
+    if (user.customUserId) return user.customUserId;
+    const prefix = user.role === "retailer" ? "RT" : "EL";
+    if (user._id) {
+      return `${prefix}${user._id.slice(-4).toUpperCase()}`;
+    }
+    return `${prefix}1001`;
+  };
+
   // ==========================================
   // EXPORT ALL FILTERED PAYOUTS EXCEL
   // ==========================================
@@ -605,7 +616,7 @@ const Reports = () => {
     }
 
     const columns = [
-      { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "-" },
+      { label: "User Unique ID", key: (w) => formatUserUniqueId(w.userId) },
       { label: "Request ID", key: "_id" },
       { label: "User Name", key: (w) => w.userId?.name || "N/A" },
       { label: "Phone Number", key: (w) => w.userId?.phone || "N/A" },
@@ -651,7 +662,7 @@ const Reports = () => {
     }
 
     const columns = [
-      { label: "User Unique ID", key: (u) => u.customUserId || u._id },
+      { label: "User Unique ID", key: (u) => formatUserUniqueId(u) },
       { label: "User Name", key: "name" },
       { label: "Mobile Number", key: "phone" },
       { label: "Email", key: (u) => u.email || "-" },
@@ -1120,11 +1131,9 @@ const Reports = () => {
                           <td className="p-3.5">
                             <div className="flex items-center gap-1.5">
                               <p className="font-bold text-gray-900">{w.userId?.name || "Unknown User"}</p>
-                              {w.userId?.customUserId && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
-                                  {w.userId.customUserId}
-                                </span>
-                              )}
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
+                                {formatUserUniqueId(w.userId)}
+                              </span>
                             </div>
                             <p className="text-gray-500 font-mono text-[11px]">{w.userId?.phone || "N/A"}</p>
                             <div className="flex items-center gap-1.5 mt-1">

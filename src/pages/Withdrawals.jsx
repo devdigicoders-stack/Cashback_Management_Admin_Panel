@@ -170,10 +170,21 @@ const Withdrawals = () => {
     });
   }, [withdrawals, searchTerm, startDate, endDate]);
 
+  // Helper for short and clean User Unique ID (e.g. EL1001, RT1001)
+  const formatUserUniqueId = (user) => {
+    if (!user) return "-";
+    if (user.customUserId) return user.customUserId;
+    const prefix = user.role === "retailer" ? "RT" : "EL";
+    if (user._id) {
+      return `${prefix}${user._id.slice(-4).toUpperCase()}`;
+    }
+    return `${prefix}1001`;
+  };
+
   // Export to Excel for Bank Transfer / Reports (Point 3: User Unique ID in place of Withdrawal ID)
   const handleExportWithdrawalsExcel = () => {
     const columns = [
-      { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "-" },
+      { label: "User Unique ID", key: (w) => formatUserUniqueId(w.userId) },
       { label: "Withdrawal ID", key: "_id" },
       { label: "User Name", key: (w) => w.userId?.name || "N/A" },
       { label: "Phone Number", key: (w) => w.userId?.phone || "N/A" },
@@ -197,7 +208,7 @@ const Withdrawals = () => {
     const listToExport = pendingList.length > 0 ? pendingList : withdrawals.slice(0, 5);
 
     const columns = [
-      { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "" },
+      { label: "User Unique ID", key: (w) => formatUserUniqueId(w.userId) },
       { label: "Withdrawal ID", key: "_id" },
       { label: "User Name", key: (w) => w.userId?.name || "N/A" },
       { label: "Account Number", key: (w) => w.bankSnapshot?.accountNumber || w.userId?.bankDetails?.accountNumber || "" },
@@ -681,11 +692,9 @@ const Withdrawals = () => {
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-gray-900 text-sm">{withdrawal.userId?.name || "Unknown User"}</span>
-                            {withdrawal.userId?.customUserId && (
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
-                                {withdrawal.userId.customUserId}
-                              </span>
-                            )}
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
+                              {formatUserUniqueId(withdrawal.userId)}
+                            </span>
                           </div>
                           <span className="text-xs text-gray-500 font-mono mt-0.5">{withdrawal.userId?.phone || "-"}</span>
                           {withdrawal.userId?.role && (

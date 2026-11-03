@@ -210,9 +210,20 @@ const Users = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // Helper for short and clean User Unique ID (e.g. EL1001, RT1001)
+  const formatUserUniqueId = (u) => {
+    if (!u) return "-";
+    if (u.customUserId) return u.customUserId;
+    const prefix = u.role === "retailer" ? "RT" : "EL";
+    if (u._id) {
+      return `${prefix}${u._id.slice(-4).toUpperCase()}`;
+    }
+    return `${prefix}1001`;
+  };
+
   const handleExportUsersExcel = () => {
     const columns = [
-      { label: "User Unique ID", key: (u) => u.customUserId || u._id },
+      { label: "User Unique ID", key: (u) => formatUserUniqueId(u) },
       { label: "User Name", key: "name" },
       { label: "Phone Number", key: "phone" },
       { label: "Role", key: "role" },
@@ -456,11 +467,9 @@ const Users = () => {
                         <div>
                           <div className="flex items-center gap-1.5">
                             <p className="font-semibold">{user.name}</p>
-                            {user.customUserId && (
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
-                                {user.customUserId}
-                              </span>
-                            )}
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
+                              {formatUserUniqueId(user)}
+                            </span>
                           </div>
                           <p className="text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</p>
                         </div>
