@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useFont } from "../context/FontContext";
 import { toast } from "sonner";
-import { FaBell, FaPaperPlane, FaUsers, FaBolt, FaStore, FaEdit, FaTrash, FaTimes, FaPlus, FaMobileAlt } from "react-icons/fa";
+import { 
+  FaBell, FaPaperPlane, FaUsers, FaBolt, FaStore, FaEdit, 
+  FaTrash, FaTimes, FaPlus, FaMobileAlt, FaFileUpload, FaDownload, FaCheckCircle 
+} from "react-icons/fa";
 import api from "../utils/api";
 
 const Notifications = () => {
@@ -27,6 +30,69 @@ const Notifications = () => {
     message: "",
     phoneNumbers: "",
   });
+
+  // Bulk Upload File State (Point 4)
+  const [uploadFileName, setUploadFileName] = useState("");
+  const fileInputRef = useRef(null);
+
+  // Parse phone numbers from uploaded CSV or TXT file
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result || "";
+        // Match 10 to 12 digit phone numbers with optional +91 prefix
+        const rawMatches = text.match(/(?:\+?91[\-\s]?)?[6-9]\d{9}/g) || [];
+        const cleanNumbers = rawMatches
+          .map((m) => {
+            const digits = m.replace(/\D/g, "");
+            return digits.length > 10 && digits.startsWith("91") ? digits.slice(-10) : digits;
+          })
+          .filter((num) => num.length === 10);
+
+        const uniqueNumbers = Array.from(new Set(cleanNumbers));
+
+        if (uniqueNumbers.length === 0) {
+          toast.error("No valid 10-digit mobile numbers found in the file.");
+          return;
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          phoneNumbers: uniqueNumbers.join("\n"),
+        }));
+
+        toast.success(`Loaded ${uniqueNumbers.length} unique phone number(s) from "${file.name}"!`);
+      } catch (err) {
+        console.error("File parsing error:", err);
+        toast.error("Failed to parse file. Please upload a valid CSV or TXT file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Download Sample Bulk Numbers Format
+  const handleDownloadSample = () => {
+    const sampleCSV = "Phone Number,Name\n9876543210,Sample Electrician 1\n9812345678,Sample Retailer 2\n9923456789,Sample Electrician 3\n";
+    const blob = new Blob([sampleCSV], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "Sample_Bulk_Numbers.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Count active numbers in textarea
+  const enteredNumbersCount = (formData.phoneNumbers || "")
+    .split(/[\n,;]/)
+    .map((p) => p.trim())
+    .filter(Boolean).length;
 
   // Delete Modal State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -342,21 +408,71 @@ const Notifications = () => {
                 </div>
 
                 {formData.targetRole === "custom" && (
-                  <div className="mt-3 p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 space-y-1.5 animate-in fade-in">
-                    <label className="block text-xs font-bold text-emerald-900">
-                      Enter Mobile Numbers (Comma or newline separated) *
-                    </label>
-                    <textarea
-                      name="phoneNumbers"
-                      value={formData.phoneNumbers}
-                      onChange={handleInputChange}
-                      placeholder="e.g. 9876543210, 9812345678 or paste numbers line by line..."
-                      rows="3"
-                      className="w-full p-2.5 rounded-lg border text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      required
-                    ></textarea>
+                  <div className="mt-3 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-3 animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-900">
+                          Bulk Mobile Numbers Upload / Input *
+                        </label>
+                        <p className="text-[11px] text-emerald-700">
+                          Upload an Excel/CSV file with numbers, or enter manually below.
+                        </p>
+                      </div>
+
+                      {/* Action buttons: Upload file & Download sample */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept=".csv,.txt,.xls,.xlsx"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition cursor-pointer"
+                        >
+                          <FaFileUpload className="text-xs" /> Upload Numbers File
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDownloadSample}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition cursor-pointer"
+                          title="Download Sample Format"
+                        >
+                          <FaDownload className="text-[10px]" /> Sample Format
+                        </button>
+                      </div>
+                    </div>
+
+                    {uploadFileName && (
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-medium bg-emerald-100/70 px-3 py-1.5 rounded-lg border border-emerald-200">
+                        <FaCheckCircle className="text-emerald-600" />
+                        <span>File uploaded: <b>{uploadFileName}</b> ({enteredNumbersCount} unique numbers loaded)</span>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[11px] text-gray-500 font-medium">Numbers List (Separated by comma or newline):</span>
+                        <span className="text-[11px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                          Total Numbers: {enteredNumbersCount}
+                        </span>
+                      </div>
+                      <textarea
+                        name="phoneNumbers"
+                        value={formData.phoneNumbers}
+                        onChange={handleInputChange}
+                        placeholder="e.g. 9876543210, 9812345678 or upload file above..."
+                        rows="4"
+                        className="w-full p-2.5 rounded-lg border text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        required
+                      ></textarea>
+                    </div>
+
                     <p className="text-[11px] text-emerald-700">
-                      Only registered electricians and retailers with matching numbers will receive this broadcast push notification.
+                      ℹ️ Only registered electricians and retailers with matching numbers will receive this push notification.
                     </p>
                   </div>
                 )}

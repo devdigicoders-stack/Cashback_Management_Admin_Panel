@@ -191,6 +191,7 @@ const Users = () => {
     const matchesSearch =
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.phone?.includes(searchQuery) ||
+      user.customUserId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.salesCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.salesPerson?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.salesPerson?.code?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -211,6 +212,7 @@ const Users = () => {
 
   const handleExportUsersExcel = () => {
     const columns = [
+      { label: "User Unique ID", key: (u) => u.customUserId || u._id },
       { label: "User Name", key: "name" },
       { label: "Phone Number", key: "phone" },
       { label: "Role", key: "role" },
@@ -452,7 +454,14 @@ const Users = () => {
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold">{user.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold">{user.name}</p>
+                            {user.customUserId && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
+                                {user.customUserId}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>

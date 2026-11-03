@@ -350,8 +350,23 @@ const Reports = () => {
   // ==========================================
   const filteredWithdrawals = useMemo(() => {
     return withdrawals.filter((w) => {
+      // Date Range Filter
+      if (payoutStartDate) {
+        const wDate = new Date(w.status === "approved" && w.processedAt ? w.processedAt : w.createdAt);
+        const s = new Date(payoutStartDate);
+        s.setHours(0, 0, 0, 0);
+        if (wDate < s) return false;
+      }
+      if (payoutEndDate) {
+        const wDate = new Date(w.status === "approved" && w.processedAt ? w.processedAt : w.createdAt);
+        const e = new Date(payoutEndDate);
+        e.setHours(23, 59, 59, 999);
+        if (wDate > e) return false;
+      }
+
       if (!payoutSearch.trim()) return true;
       const q = payoutSearch.toLowerCase();
+      const customId = (w.userId?.customUserId || "").toLowerCase();
       const userName = w.userId?.name?.toLowerCase() || "";
       const userPhone = w.userId?.phone || "";
       const bankName = (w.bankSnapshot?.bankName || w.userId?.bankDetails?.bankName || "").toLowerCase();
@@ -361,6 +376,7 @@ const Reports = () => {
       const txnNo = (w.transactionNumber || "").toLowerCase();
 
       return (
+        customId.includes(q) ||
         userName.includes(q) ||
         userPhone.includes(q) ||
         bankName.includes(q) ||
@@ -370,7 +386,7 @@ const Reports = () => {
         txnNo.includes(q)
       );
     });
-  }, [withdrawals, payoutSearch]);
+  }, [withdrawals, payoutSearch, payoutStartDate, payoutEndDate]);
 
   // Paginated Payouts
   const paginatedWithdrawals = useMemo(() => {
@@ -564,6 +580,7 @@ const Reports = () => {
         { label: "Sender Narration / Remarks", key: () => "Loyalty Cashback Payout" },
         { label: "Beneficiary Mobile", key: (w) => w.userId?.phone || "-" },
         { label: "User Role", key: (w) => w.userId?.role || "-" },
+        { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "-" },
         { label: "Request Reference ID", key: "_id" },
         { label: "Request Date", key: (w) => new Date(w.createdAt).toLocaleDateString("en-IN") },
       ];
@@ -588,6 +605,7 @@ const Reports = () => {
     }
 
     const columns = [
+      { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "-" },
       { label: "Request ID", key: "_id" },
       { label: "User Name", key: (w) => w.userId?.name || "N/A" },
       { label: "Phone Number", key: (w) => w.userId?.phone || "N/A" },
@@ -633,7 +651,7 @@ const Reports = () => {
     }
 
     const columns = [
-      { label: "User ID", key: "_id" },
+      { label: "User Unique ID", key: (u) => u.customUserId || u._id },
       { label: "User Name", key: "name" },
       { label: "Mobile Number", key: "phone" },
       { label: "Email", key: (u) => u.email || "-" },
@@ -1100,7 +1118,14 @@ const Reports = () => {
                           </td>
 
                           <td className="p-3.5">
-                            <p className="font-bold text-gray-900">{w.userId?.name || "Unknown User"}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-bold text-gray-900">{w.userId?.name || "Unknown User"}</p>
+                              {w.userId?.customUserId && (
+                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
+                                  {w.userId.customUserId}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-gray-500 font-mono text-[11px]">{w.userId?.phone || "N/A"}</p>
                             <div className="flex items-center gap-1.5 mt-1">
                               {w.userId?.role === "electrician" ? (

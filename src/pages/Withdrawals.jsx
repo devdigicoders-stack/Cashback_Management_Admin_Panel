@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { 
   FaMoneyBillWave, FaCheckCircle, FaTimesCircle, FaClock, FaEye, 
   FaDownload, FaUpload, FaFileExcel, FaCopy, FaCheck, FaSearch, 
-  FaSpinner, FaTimes, FaListAlt, FaBuilding, FaEdit 
+  FaSpinner, FaTimes, FaListAlt, FaBuilding, FaEdit, FaCalendarAlt 
 } from "react-icons/fa";
 import api from "../utils/api";
 import { exportToExcel } from "../utils/excelExport";
@@ -25,6 +25,34 @@ const Withdrawals = () => {
     return s.get("filter") || s.get("status") || "pending";
   });
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Date Range Filter States (Point 2)
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [datePreset, setDatePreset] = useState("all");
+
+  const handleDatePresetChange = (preset) => {
+    setDatePreset(preset);
+    const today = new Date();
+    const formatDate = (d) => d.toISOString().split("T")[0];
+
+    if (preset === "all") {
+      setStartDate("");
+      setEndDate("");
+    } else if (preset === "today") {
+      const dStr = formatDate(today);
+      setStartDate(dStr);
+      setEndDate(dStr);
+    } else if (preset === "thisWeek") {
+      const firstDay = new Date(today.setDate(today.getDate() - today.getDay() + 1));
+      setStartDate(formatDate(firstDay));
+      setEndDate(formatDate(new Date()));
+    } else if (preset === "thisMonth") {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      setStartDate(formatDate(firstDay));
+      setEndDate(formatDate(new Date()));
+    }
+  };
 
   useEffect(() => {
     const s = new URLSearchParams(location.search);
@@ -64,19 +92,24 @@ const Withdrawals = () => {
 
   useEffect(() => {
     fetchWithdrawals();
-  }, [filterStatus]);
+  }, [filterStatus, startDate, endDate]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterStatus, itemsPerPage, searchTerm]);
+  }, [filterStatus, itemsPerPage, searchTerm, startDate, endDate]);
 
   const fetchWithdrawals = async () => {
     setLoading(true);
     try {
       let url = `/api/admin/withdrawals`;
+      const params = new URLSearchParams();
       if (filterStatus !== "all") {
-        url += `?status=${filterStatus}`;
+        params.append("status", filterStatus);
       }
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      const qStr = params.toString();
+      if (qStr) url += `?${qStr}`;
 
       const response = await api.get(url);
       const data = response.data;
@@ -107,24 +140,40 @@ const Withdrawals = () => {
     return { total, pending, processing, approved, totalApprovedAmt, totalPendingAmt };
   }, [withdrawals]);
 
-  // Filtered withdrawals with search
+  // Filtered withdrawals with search & date range
   const filteredWithdrawals = useMemo(() => {
     return withdrawals.filter(w => {
+      // Date Range Filter
+      if (startDate) {
+        const wDate = new Date(w.status === "approved" && w.processedAt ? w.processedAt : w.createdAt);
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        if (wDate < s) return false;
+      }
+      if (endDate) {
+        const wDate = new Date(w.status === "approved" && w.processedAt ? w.processedAt : w.createdAt);
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        if (wDate > e) return false;
+      }
+
       const q = searchTerm.toLowerCase().trim();
       if (!q) return true;
+      const customId = (w.userId?.customUserId || "").toLowerCase();
       const userName = (w.userId?.name || "").toLowerCase();
       const userPhone = w.userId?.phone || "";
       const bankName = (w.bankSnapshot?.bankName || w.userId?.bankDetails?.bankName || "").toLowerCase();
       const accNo = w.bankSnapshot?.accountNumber || w.userId?.bankDetails?.accountNumber || "";
       const ifsc = (w.bankSnapshot?.ifscCode || w.userId?.bankDetails?.ifscCode || "").toLowerCase();
       const txn = (w.transactionNumber || "").toLowerCase();
-      return userName.includes(q) || userPhone.includes(q) || bankName.includes(q) || accNo.includes(q) || ifsc.includes(q) || txn.includes(q);
+      return customId.includes(q) || userName.includes(q) || userPhone.includes(q) || bankName.includes(q) || accNo.includes(q) || ifsc.includes(q) || txn.includes(q);
     });
-  }, [withdrawals, searchTerm]);
+  }, [withdrawals, searchTerm, startDate, endDate]);
 
-  // Export to Excel for Bank Transfer / Reports
+  // Export to Excel for Bank Transfer / Reports (Point 3: User Unique ID in place of Withdrawal ID)
   const handleExportWithdrawalsExcel = () => {
     const columns = [
+      { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "-" },
       { label: "Withdrawal ID", key: "_id" },
       { label: "User Name", key: (w) => w.userId?.name || "N/A" },
       { label: "Phone Number", key: (w) => w.userId?.phone || "N/A" },
@@ -148,6 +197,7 @@ const Withdrawals = () => {
     const listToExport = pendingList.length > 0 ? pendingList : withdrawals.slice(0, 5);
 
     const columns = [
+      { label: "User Unique ID", key: (w) => w.userId?.customUserId || w.userId?._id || "" },
       { label: "Withdrawal ID", key: "_id" },
       { label: "User Name", key: (w) => w.userId?.name || "N/A" },
       { label: "Account Number", key: (w) => w.bankSnapshot?.accountNumber || w.userId?.bankDetails?.accountNumber || "" },
@@ -498,40 +548,100 @@ const Withdrawals = () => {
       {/* Main Table Container */}
       <div className="rounded-xl shadow-sm border overflow-hidden" style={{ backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
         
-        {/* Toolbar & Search */}
-        <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center gap-4" style={{ borderColor: themeColors.border }}>
-          
-          {/* Status Tabs (Point 6: Pending & Paid only) */}
-          <div className="flex space-x-1.5 bg-gray-100 p-1 rounded-lg overflow-x-auto w-full md:w-auto">
-            {[
-              { id: "pending", label: "Pending" },
-              { id: "approved", label: "Paid" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setFilterStatus(tab.id)}
-                className={`px-4 py-2 text-xs font-bold rounded-md transition-all whitespace-nowrap cursor-pointer ${
-                  filterStatus === tab.id ? "bg-white shadow-sm text-green-700" : "text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        {/* Toolbar & Filters (Status, Date Range, Search) */}
+        <div className="p-4 border-b space-y-3" style={{ borderColor: themeColors.border }}>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+            
+            {/* Status Tabs (Point 6: Pending & Paid only) */}
+            <div className="flex space-x-1.5 bg-gray-100 p-1 rounded-lg overflow-x-auto w-full lg:w-auto">
+              {[
+                { id: "pending", label: "Pending" },
+                { id: "approved", label: "Paid" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterStatus(tab.id)}
+                  className={`px-4 py-2 text-xs font-bold rounded-md transition-all whitespace-nowrap cursor-pointer ${
+                    filterStatus === tab.id ? "bg-white shadow-sm text-green-700" : "text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-          {/* Search Box */}
-          <div className="relative w-full md:w-72">
-            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-            <input
-              type="text"
-              placeholder="Search user, bank, A/C, UTR..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-              style={{ borderColor: themeColors.border }}
-            />
-          </div>
+            {/* Date Range Filter (Point 2: Date range in Payout option) */}
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                <FaCalendarAlt className="text-gray-400" />
+                <select
+                  value={datePreset}
+                  onChange={(e) => handleDatePresetChange(e.target.value)}
+                  className="px-2.5 py-1.5 border rounded-lg text-xs font-medium focus:outline-none bg-white cursor-pointer"
+                  style={{ borderColor: themeColors.border }}
+                >
+                  <option value="all">All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="thisWeek">This Week</option>
+                  <option value="thisMonth">This Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
 
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                  className="px-2 py-1.5 border rounded-lg text-xs focus:outline-none bg-white text-gray-700"
+                  style={{ borderColor: themeColors.border }}
+                  title="Start Date"
+                />
+                <span className="text-xs text-gray-400">to</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                  className="px-2 py-1.5 border rounded-lg text-xs focus:outline-none bg-white text-gray-700"
+                  style={{ borderColor: themeColors.border }}
+                  title="End Date"
+                />
+                {(startDate || endDate) && (
+                  <button
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                      setDatePreset("all");
+                    }}
+                    className="p-1.5 text-xs text-gray-500 hover:text-red-500 hover:bg-gray-100 rounded-md transition cursor-pointer"
+                    title="Clear Date Filter"
+                  >
+                    <FaTimes />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative w-full lg:w-64">
+              <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+              <input
+                type="text"
+                placeholder="Search User ID, Name, Bank, UTR..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                style={{ borderColor: themeColors.border }}
+              />
+            </div>
+
+          </div>
         </div>
 
         {/* Table */}
@@ -539,7 +649,7 @@ const Withdrawals = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr style={{ backgroundColor: themeColors.background, color: themeColors.textSecondary }}>
-                <th className="p-4 font-medium text-xs border-b uppercase" style={{ borderColor: themeColors.border }}>User & Contact</th>
+                <th className="p-4 font-medium text-xs border-b uppercase" style={{ borderColor: themeColors.border }}>User & Unique ID</th>
                 <th className="p-4 font-medium text-xs border-b uppercase" style={{ borderColor: themeColors.border }}>Bank Account Details</th>
                 <th className="p-4 font-medium text-xs border-b uppercase text-right" style={{ borderColor: themeColors.border }}>Amount</th>
                 <th className="p-4 font-medium text-xs border-b uppercase" style={{ borderColor: themeColors.border }}>Bank UTR / Txn No.</th>
@@ -569,7 +679,14 @@ const Withdrawals = () => {
                     <tr key={withdrawal._id} className="hover:bg-gray-50 transition-colors border-b last:border-0" style={{ borderColor: themeColors.border }}>
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-gray-900 text-sm">{withdrawal.userId?.name || "Unknown User"}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-gray-900 text-sm">{withdrawal.userId?.name || "Unknown User"}</span>
+                            {withdrawal.userId?.customUserId && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">
+                                {withdrawal.userId.customUserId}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-xs text-gray-500 font-mono mt-0.5">{withdrawal.userId?.phone || "-"}</span>
                           {withdrawal.userId?.role && (
                             <span className="text-[10px] font-bold uppercase w-fit px-1.5 py-0.5 rounded mt-1 bg-gray-100 text-gray-700">
